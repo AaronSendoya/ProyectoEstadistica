@@ -1,0 +1,44 @@
+<!-- Preview Container -->
+<div id="previewContainer" class="hidden mt-8 transition-all">
+    <div class="bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl border border-white/60 dark:border-slate-700/60 shadow-[0_20px_50px_rgba(79,70,229,0.05)] dark:shadow-[0_20px_50px_rgba(79,70,229,0.15)] rounded-[2.5rem] p-10 mb-6 relative">
+        <h2 class="text-2xl font-semibold text-slate-900 dark:text-slate-100 border-b border-slate-100 dark:border-slate-700 pb-4 mb-6 tracking-tight">Vista Previa de Resultados</h2>
+        
+        <!-- Gráficas -->
+        <div id="previewChartsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Inyectado vía js -->
+        </div>
+
+        <!-- Tabla -->
+        <div class="bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700">
+                        <tr id="previewTableHeadRow">
+                            <!-- Inyectado Vía JS -->
+                        </tr>
+                    </thead>
+                    <tbody id="previewTableBody" class="divide-y divide-slate-100 dark:divide-slate-700">
+                        <!-- Inyectado vía JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Botones de Acción -->
+        <div class="flex flex-col sm:flex-row justify-end items-center gap-4 pt-8 mt-4 border-t border-slate-100 dark:border-slate-700">
+            <button type="button" id="btnNewAnalysis" class="w-full sm:w-auto px-5 py-2.5 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 hover:text-indigo-600 dark:hover:text-indigo-400 font-medium rounded-lg transition-all duration-200 shadow-sm">
+                Analizar Nuevo Documento
+            </button>
+            <div class="flex space-x-3 w-full sm:w-auto">
+                <button type="button" id="btnDownloadExcel" class="flex-1 sm:flex-none px-5 py-2.5 text-white bg-green-600 hover:bg-green-700 font-medium rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center hover:-translate-y-0.5 hover:shadow-md">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    Excel
+                </button>
+                <button type="button" id="btnDownloadPdf" class="flex-1 sm:flex-none px-5 py-2.5 text-white bg-red-600 hover:bg-red-700 font-medium rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center hover:-translate-y-0.5 hover:shadow-md">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    PDF
+                </button>
+            </div>
+        </div>
+    </div>
+</div>

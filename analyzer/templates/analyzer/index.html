@@ -1,170 +1,151 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Análisis Estadístico Avanzado</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .drag-active { border-color: #4F46E5 !important; background-color: #EEF2FF !important; }
-        .hidden { display: none; }
-    </style>
-</head>
-<body class="bg-[#F9FAFB] text-[#1F2937] min-h-screen flex items-center justify-center font-sans p-6">
+{% extends "base_analyzer.html" %}
 
-<div class="max-w-4xl w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100">
-    <!-- Header -->
-    <div class="bg-indigo-600 px-8 py-6">
-        <h1 class="text-3xl font-bold text-white tracking-wide">Analizador Estadístico</h1>
-        <p class="text-indigo-100 mt-2 text-sm">Carga tus documentos (Excel, PDF, Word) y obtén estadísticas precisas en segundos.</p>
+{% block content %}
+<!-- Error Alert -->
+<div id="errorAlert" class="hidden mb-6 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-400 p-4 rounded-xl shadow-sm animate-fade-in-up" role="alert">
+    <p class="font-bold">Error durante el análisis</p>
+    <p id="errorMessage" class="text-sm">Ha ocurrido un error al procesar el archivo.</p>
+</div>
+
+<form id="analysisForm" class="relative z-10 w-full animate-fade-in-up">
+    {% csrf_token %}
+    
+    {% include 'analyzer/components/upload_zone.html' %}
+
+    <div class="w-4/5 mx-auto">
+        {% include 'analyzer/components/variable_builder.html' %}
+
+        {% include 'analyzer/components/metrics_selector.html' %}
     </div>
+</form>
 
-    <!-- Main Content -->
-    <div class="p-8">
-        <!-- Error Alert -->
-        <div id="errorAlert" class="hidden mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 p-4 rounded-md shadow-sm" role="alert">
-            <p class="font-bold">Error durante el análisis</p>
-            <p id="errorMessage" class="text-sm">Ha ocurrido un error al procesar el archivo.</p>
-        </div>
-
-        <form id="analysisForm" class="space-y-8">
-            {% csrf_token %}
-            
-            <!-- Drag and Drop Zone -->
-            <div>
-                <h2 class="text-lg font-semibold mb-3 border-b pb-2 text-gray-800">1. Origen de Datos</h2>
-                <div id="dropZone" class="mt-1 flex justify-center px-6 pt-8 pb-8 border-2 border-gray-300 border-dashed rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
-                    <div class="space-y-1 text-center">
-                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
-                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-                        <div class="flex text-sm text-gray-600 justify-center mt-3">
-                            <label for="fileInput" class="relative cursor-pointer rounded-md font-medium text-indigo-600 hover:text-indigo-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-indigo-500">
-                                <span>Selecciona un archivo </span>
-                                <input id="fileInput" name="file" type="file" class="sr-only" accept=".xlsx,.xls,.pdf,.doc,.docx" required>
-                            </label>
-                            <p class="pl-1 text-gray-500">o arrástralo en esta zona</p>
-                        </div>
-                        <p class="text-xs text-gray-400 mt-2">Formatos soportados: Excel, Word o PDF</p>
-                        <div id="fileDisplayContainer" class="mt-3 flex items-center justify-center space-x-2 hidden">
-                            <p id="fileNameDisplay" class="text-sm font-semibold text-indigo-600"></p>
-                            <button type="button" id="removeFileBtn" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 rounded-full p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500" title="Eliminar archivo">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Metrics Selection -->
-            <div>
-                <h2 class="text-lg font-semibold mb-3 border-b pb-2 text-gray-800">2. Métricas a Calcular</h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    
-                    <!-- Tendencia Central -->
-                    <div class="bg-gray-50 p-5 rounded-xl border border-gray-100 shadow-sm">
-                        <h3 class="font-semibold text-indigo-700 mb-3 text-xs uppercase tracking-widest">Tendencia Central</h3>
-                        <div class="space-y-2.5">
-                            <label class="flex items-center"><input type="checkbox" name="metrics[]" value="media" class="form-checkbox h-4 w-4 text-indigo-600 rounded"> <span class="ml-2 text-sm text-gray-700">Media</span></label>
-                            <label class="flex items-center"><input type="checkbox" name="metrics[]" value="mediana" class="form-checkbox h-4 w-4 text-indigo-600 rounded"> <span class="ml-2 text-sm text-gray-700">Mediana</span></label>
-                            <label class="flex items-center"><input type="checkbox" name="metrics[]" value="moda" class="form-checkbox h-4 w-4 text-indigo-600 rounded"> <span class="ml-2 text-sm text-gray-700">Moda</span></label>
-                            <label class="flex items-center"><input type="checkbox" name="metrics[]" value="media_armonica" class="form-checkbox h-4 w-4 text-indigo-600 rounded"> <span class="ml-2 text-sm text-gray-700">Media Armónica</span></label>
-                            <label class="flex items-center"><input type="checkbox" name="metrics[]" value="media_geometrica" class="form-checkbox h-4 w-4 text-indigo-600 rounded"> <span class="ml-2 text-sm text-gray-700">Media Geométrica</span></label>
-                        </div>
-                    </div>
-
-                    <!-- Dispersión -->
-                    <div class="bg-gray-50 p-5 rounded-xl border border-gray-100 shadow-sm">
-                        <h3 class="font-semibold text-indigo-700 mb-3 text-xs uppercase tracking-widest">Dispersión y Tipado</h3>
-                        <div class="space-y-2.5">
-                            <label class="flex items-center"><input type="checkbox" name="metrics[]" value="rango" class="form-checkbox h-4 w-4 text-indigo-600 rounded"> <span class="ml-2 text-sm text-gray-700">Rango</span></label>
-                            <label class="flex items-center"><input type="checkbox" name="metrics[]" value="varianza" class="form-checkbox h-4 w-4 text-indigo-600 rounded"> <span class="ml-2 text-sm text-gray-700">Varianza</span></label>
-                            <label class="flex items-center"><input type="checkbox" name="metrics[]" value="desviacion_estandar" class="form-checkbox h-4 w-4 text-indigo-600 rounded"> <span class="ml-2 text-sm text-gray-700">Desviación Estándar</span></label>
-                            <label class="flex items-center"><input type="checkbox" name="metrics[]" value="coeficiente_variacion" class="form-checkbox h-4 w-4 text-indigo-600 rounded"> <span class="ml-2 text-sm text-gray-700">Coef. Variación</span></label>
-                            <label class="flex items-center"><input type="checkbox" name="metrics[]" value="variables_aleatorias" class="form-checkbox h-4 w-4 text-indigo-600 rounded"> <span class="ml-2 text-sm text-gray-700">Variables (Disc/Cont)</span></label>
-                            <label class="flex items-center"><input type="checkbox" name="metrics[]" value="espacio_muestral" class="form-checkbox h-4 w-4 text-indigo-600 rounded"> <span class="ml-2 text-sm text-gray-700">Espacio Muestral</span></label>
-                        </div>
-                    </div>
-
-                    <!-- Posición -->
-                    <div class="bg-gray-50 p-5 rounded-xl border border-gray-100 shadow-sm">
-                        <h3 class="font-semibold text-indigo-700 mb-3 text-xs uppercase tracking-widest">Posición</h3>
-                        <div class="space-y-2.5">
-                            <label class="flex items-center"><input type="checkbox" name="metrics[]" value="cuartiles" class="form-checkbox h-4 w-4 text-indigo-600 rounded"> <span class="ml-2 text-sm text-gray-700">Cuartiles (Q1, Q2, Q3)</span></label>
-                            <label class="flex items-center"><input type="checkbox" name="metrics[]" value="deciles" class="form-checkbox h-4 w-4 text-indigo-600 rounded"> <span class="ml-2 text-sm text-gray-700">Deciles (Todos)</span></label>
-                            <label class="flex items-center"><input type="checkbox" name="metrics[]" value="percentiles" class="form-checkbox h-4 w-4 text-indigo-600 rounded"> <span class="ml-2 text-sm text-gray-700">Percentiles 10 y 90</span></label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Export Format and Layout -->
-            <div>
-                <h2 class="text-lg font-semibold mb-3 border-b pb-2 text-gray-800">3. Configuración de Diseño y Exportación</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                    <!-- Orientación de Tabla -->
-                    <div class="bg-gray-50 p-5 rounded-xl border border-gray-100 shadow-sm">
-                        <h3 class="font-semibold text-indigo-700 mb-3 text-xs uppercase tracking-widest">Orientación de la Tabla de Resultados:</h3>
-                        <div class="space-y-3">
-                            <label class="flex items-center cursor-pointer">
-                                <input type="radio" name="layout" value="horizontal" class="form-radio h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300" checked>
-                                <span class="ml-2 text-sm text-gray-700 font-medium">Horizontal (Métricas enumeradas hacia abajo)</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer">
-                                <input type="radio" name="layout" value="vertical" class="form-radio h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300">
-                                <span class="ml-2 text-sm text-gray-700 font-medium">Vertical (Métricas en fila única)</span>
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <!-- Formato Exportación -->
-                    <div class="bg-gray-50 p-5 rounded-xl border border-gray-100 shadow-sm">
-                        <h3 class="font-semibold text-indigo-700 mb-3 text-xs uppercase tracking-widest">Formato de Exportación</h3>
-                        <div class="space-y-3">
-                            <label class="flex items-center cursor-pointer">
-                                <input type="radio" name="format" value="excel" class="form-radio h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300" checked>
-                                <span class="ml-2 text-sm text-gray-700 font-medium">Documento Excel (.xlsx)</span>
-                            </label>
-                            <label class="flex items-center cursor-pointer">
-                                <input type="radio" name="format" value="pdf" class="form-radio h-5 w-5 text-indigo-600 focus:ring-indigo-500 border-gray-300">
-                                <span class="ml-2 text-sm text-gray-700 font-medium">Documento PDF (.pdf)</span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tipo de Gráfico -->
-            <div>
-                <h2 class="text-lg font-semibold mb-3 border-b pb-2 text-gray-800">4. Configuración Visual</h2>
-                <div class="bg-gray-50 p-5 rounded-xl border border-gray-100 shadow-sm mt-4">
-                    <div class="flex items-center text-sm text-blue-600 bg-blue-50 p-3 rounded-lg border border-blue-100 mb-4">
-                        <svg class="w-5 h-5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.34.208-.646.477-.859a4 4 0 10-4.954 0c.27.213.462.519.476.859h4.002z"></path></svg>
-                        <span><strong class="font-medium">Recomendación:</strong> Para medidas de dispersión y tendencia central, los gráficos de Columnas o Histogramas son ideales. Para ver la distribución del espacio muestral, usa Dispersión.</span>
-                    </div>
-                    
-                    <h3 class="font-semibold text-indigo-700 mb-3 text-xs uppercase tracking-widest">Tipo de Gráfico:</h3>
-                    <select name="chart_type" class="form-select block w-full md:w-1/2 p-2 border rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="bar" selected>Columnas</option>
-                        <option value="line">Lineal</option>
-                        <option value="pie">Circular</option>
-                        <option value="scatter">Dispersión</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Action Button -->
-            <div class="pt-6 border-t flex justify-end">
-                <button type="submit" id="submitBtn" class="flex justify-center items-center py-3.5 px-10 border border-transparent rounded-xl shadow-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-4 focus:ring-indigo-300 text-lg font-bold transition-all w-full md:w-auto transform hover:scale-105">
-                    Analizar y Generar
-                </button>
-            </div>
-        </form>
-    </div>
+<div class="w-4/5 mx-auto">
+    {% include 'analyzer/components/preview_dashboard.html' %}
 </div>
 
 <script>
+document.addEventListener('DOMContentLoaded', () => {
+
+    // ── METRIC VALIDATION SYSTEM ──────────────────────────────────────────
+    let dataProfile = null;
+    const activeWarnings = {}; // {metricValue: warningText}
+
+    function validateMetric(val, profile) {
+        if (!profile) return null;
+        const n = profile.total_rows || 0;
+        const hasNeg  = profile.has_negative;
+        const hasZero = profile.has_zero;
+        const uRatio  = profile.unique_ratio || 0;
+
+        switch (val) {
+            case 'media':
+                if (n < 1) return '\u26a0\ufe0f Media: no se encontraron datos.';
+                break;
+            case 'mediana':
+                if (n < 1) return '\u26a0\ufe0f Mediana: no se encontraron datos.';
+                break;
+            case 'moda':
+                if (uRatio >= 0.95) return '\u26a0\ufe0f Moda: casi todos los valores son \u00fanicos (ratio=' + (uRatio*100).toFixed(0) + '%) \u2014 la moda puede no ser representativa.';
+                break;
+            case 'media_armonica':
+                if (hasNeg) return '\u26a0\ufe0f Media Arm\u00f3nica: los datos contienen valores negativos \u2014 resultado indefinido.';
+                if (hasZero) return '\u26a0\ufe0f Media Arm\u00f3nica: los datos contienen ceros \u2014 divisi\u00f3n por cero.';
+                break;
+            case 'media_geometrica':
+                if (hasNeg) return '\u26a0\ufe0f Media Geom\u00e9trica: los datos contienen valores negativos \u2014 resultado indefinido.';
+                if (hasZero) return '\u26a0\ufe0f Media Geom\u00e9trica: los datos contienen ceros \u2014 el producto ser\u00e1 cero.';
+                break;
+            case 'varianza':
+                if (n < 2) return '\u26a0\ufe0f Varianza: se necesitan al menos 2 datos (tienes ' + n + ').';
+                break;
+            case 'desviacion_estandar':
+                if (n < 2) return '\u26a0\ufe0f Desviaci\u00f3n Est\u00e1ndar: se necesitan al menos 2 datos (tienes ' + n + ').';
+                break;
+            case 'coeficiente_variacion':
+                if (n < 2) return '\u26a0\ufe0f Coef. Variaci\u00f3n: se necesitan al menos 2 datos.';
+                break;
+            default:
+                if (val.startsWith('cuartil_')) {
+                    if (n < 4)  return '\u26a0\ufe0f Cuartiles: se necesitan al menos 4 datos (tienes ' + n + ').';
+                    if (n < 20) return '\u26a0\ufe0f Cuartiles: muestra peque\u00f1a (' + n + ' datos) \u2014 los cuartiles pueden no ser representativos.';
+                } else if (val.startsWith('decil_')) {
+                    const d = parseInt(val.split('_')[1]);
+                    if (n < 10) return '\u26a0\ufe0f Decil ' + d + ': se necesitan al menos 10 datos (tienes ' + n + ').';
+                    if (n < 30) return '\u26a0\ufe0f Decil ' + d + ': muestra peque\u00f1a (' + n + ' datos) \u2014 los deciles pueden ser imprecisos.';
+                } else if (val.startsWith('percentil_')) {
+                    const p = parseInt(val.split('_')[1]);
+                    const minRec = Math.max(30, p * 2);
+                    if (n < p)      return '\u26a0\ufe0f Percentil ' + p + ': datos insuficientes (' + n + ') \u2014 se necesitan al menos ' + p + '.';
+                    if (n < minRec) return '\u26a0\ufe0f Percentil ' + p + ': muestra insuficiente (' + n + ' datos) \u2014 se recomiendan al menos ' + minRec + ' para mayor confiabilidad.';
+                }
+        }
+        return null;
+    }
+
+    function updateWarningsPanel() {
+        const panel = document.getElementById('metricsWarningsPanel');
+        if (!panel) return;
+        const entries = Object.entries(activeWarnings);
+        if (entries.length === 0) {
+            panel.classList.add('hidden');
+            panel.innerHTML = '';
+            return;
+        }
+        panel.classList.remove('hidden');
+        panel.innerHTML = entries.map(([, msg]) =>
+            '<div class="flex items-start gap-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-4 py-2.5 text-xs text-amber-800 dark:text-amber-300">' +
+            '<svg class="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>' +
+            '<span>' + msg + '</span></div>'
+        ).join('');
+    }
+
+    function attachMetricWarning(checkbox) {
+        checkbox.addEventListener('change', function () {
+            const val = this.value;
+            if (this.checked) {
+                const w = validateMetric(val, dataProfile);
+                if (w) activeWarnings[val] = w;
+            } else {
+                delete activeWarnings[val];
+            }
+            updateWarningsPanel();
+        });
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
+    // Inyecci\u00f3n de checkboxes de posici\u00f3n (usando createElement para poder adjuntar listeners)
+    function makePositionCheckbox(value, label, container) {
+        const lbl = document.createElement('label');
+        lbl.className = 'flex items-center hover:bg-slate-50 dark:hover:bg-slate-700/50 p-1 rounded transition-colors cursor-pointer';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox'; cb.name = 'metrics[]'; cb.value = value;
+        cb.className = 'form-checkbox h-4 w-4 text-indigo-600 rounded border-slate-300 dark:border-slate-600 focus:ring-indigo-500';
+        const sp = document.createElement('span');
+        sp.className = 'ml-2 text-sm font-medium text-slate-700 dark:text-slate-300';
+        sp.textContent = label;
+        lbl.appendChild(cb); lbl.appendChild(sp);
+        container.appendChild(lbl);
+        attachMetricWarning(cb);
+    }
+
+    const cContainer = document.querySelector('#cuartilesContainer');
+    if (cContainer) {
+        for (let i = 1; i <= 4; i++) makePositionCheckbox('cuartil_' + i, 'Cuartil ' + i, cContainer);
+    }
+
+    const dContainer = document.querySelector('#decilesContainer .grid');
+    if (dContainer) {
+        for (let i = 1; i <= 9; i++) makePositionCheckbox('decil_' + i, 'Decil ' + i, dContainer);
+    }
+
+    const pContainer = document.querySelector('#percentilesContainer .grid');
+    if (pContainer) {
+        for (let i = 1; i <= 99; i++) makePositionCheckbox('percentil_' + i, 'Percentil ' + i, pContainer);
+    }
+
+    // Attach warning listeners to all STATIC metric checkboxes
+    document.querySelectorAll('input[name="metrics[]"]').forEach(cb => attachMetricWarning(cb));
+
     const form = document.getElementById('analysisForm');
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
@@ -174,6 +155,31 @@
     const errorAlert = document.getElementById('errorAlert');
     const errorMessage = document.getElementById('errorMessage');
     const submitBtn = document.getElementById('submitBtn');
+
+    if (!form || !dropZone || !fileInput || !removeFileBtn || !submitBtn) {
+        console.error("DOM no está listo o faltan IDs críticos.");
+        return;
+    }
+
+    // Manejo de "Seleccionar todo"
+    const selectAllMetricsBtn = document.getElementById('selectAllMetrics');
+    const metricCheckboxesList = document.querySelectorAll('input[name="metrics[]"]');
+
+    if (selectAllMetricsBtn) {
+        selectAllMetricsBtn.addEventListener('change', function () {
+            const isChecked = this.checked;
+            metricCheckboxesList.forEach(checkbox => {
+                checkbox.checked = isChecked;
+            });
+        });
+
+        metricCheckboxesList.forEach(checkbox => {
+            checkbox.addEventListener('change', function () {
+                const allChecked = Array.from(metricCheckboxesList).every(c => c.checked);
+                selectAllMetricsBtn.checked = allChecked;
+            });
+        });
+    }
 
     // Manejo de Drag and Drop Visual
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -200,87 +206,272 @@
     });
 
     fileInput.addEventListener('change', showFileName);
-    
+
     // Al hacer click en cualquier parte de la zona, abrimos el browser
     dropZone.addEventListener('click', (e) => {
-        if(e.target !== fileInput && !removeFileBtn.contains(e.target)) fileInput.click();
+        if (e.target !== fileInput && !removeFileBtn.contains(e.target)) fileInput.click();
     });
 
-    function showFileName() {
-        if (fileInput.files.length > 0) {
-            fileNameDisplay.textContent = '📦 Archivo: ' + fileInput.files[0].name;
-            fileDisplayContainer.classList.remove('hidden');
+
+    // Global available columns
+    let availableColumns = [];
+
+    // Lógica para añadir filas variables
+    function updateVarLimit() {
+        const list = document.getElementById('variablesList');
+        if (!list) return;
+        const count = list.children.length;
+        const btn = document.getElementById('btnAddVariable');
+        const msg = document.getElementById('varLimitMsg');
+
+        if (count >= 5) {
+            if(btn) {
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+            if(msg) msg.classList.remove('hidden');
         } else {
-            fileDisplayContainer.classList.add('hidden');
+            if(btn) {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+            if(msg) msg.classList.add('hidden');
         }
     }
 
-    removeFileBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Reset file input
-        fileInput.value = '';
-        
-        // Reset visual state
-        fileDisplayContainer.classList.add('hidden');
-        
-        // Clear errors
-        errorAlert.classList.add('hidden');
-        errorMessage.textContent = '';
-    });
+    function addVariableRow() {
+        const list = document.getElementById('variablesList');
+        if (!list || list.children.length >= 5) return;
+
+        const row = document.createElement('div');
+        row.className = "flex gap-3 items-center row-variable bg-white/50 dark:bg-slate-700/50 backdrop-blur-sm p-3 rounded-xl border border-white/60 dark:border-slate-600/60 shadow-sm";
+
+        let colsOpts = availableColumns.map(c => '<option value="' + c + '">' + c + '</option>').join('');
+
+        row.innerHTML = '' +
+            '<select class="var-col form-select flex-1 bg-white/80 dark:bg-slate-700/80 border border-violet-200 dark:border-slate-600 focus:border-violet-500 focus:ring-violet-500 text-violet-600 dark:text-violet-300 rounded-lg transition-shadow text-sm">' +
+                colsOpts +
+            '</select>' +
+            '<select class="var-chart form-select w-40 bg-white/80 dark:bg-slate-700/80 border border-violet-200 dark:border-slate-600 focus:border-violet-500 focus:ring-violet-500 text-violet-600 dark:text-violet-300 rounded-lg transition-shadow text-sm">' +
+                '<option value="bar">Columnas</option>' +
+                '<option value="line">Lineal</option>' +
+                '<option value="pie">Circular</option>' +
+                '<option value="scatter">Dispersión</option>' +
+            '</select>' +
+            '<button type="button" class="btn-remove-var text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 p-2 rounded-lg transition-colors">' +
+                '<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>' +
+            '</button>';
+
+        row.querySelector('.btn-remove-var').addEventListener('click', () => {
+            row.remove();
+            updateVarLimit();
+        });
+
+        list.appendChild(row);
+        updateVarLimit();
+    }
+
+    const btnAddVariable = document.getElementById('btnAddVariable');
+    if (btnAddVariable) {
+        btnAddVariable.addEventListener('click', addVariableRow);
+    }
+
+    let allSheetsData = [];
+
+    async function fetchColumnsForFiles(files) {
+        const formData = new FormData();
+        for (let i = 0; i < files.length; i++) {
+            formData.append('files', files[i]);
+        }
+        const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfInput) return;
+        const csrftoken = csrfInput.value;
+        const columnSelectionContainer = document.getElementById('variableBuilderContainer');
+        const previewContainer = document.getElementById('dataPreviewContainer');
+
+        try {
+            const resp = await fetch('/api/columns/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrftoken },
+                body: formData
+            });
+
+            if (resp.ok) {
+                const data = await resp.json();
+
+                // Store global data profile for metric validation
+                if (data.data_profile) {
+                    dataProfile = data.data_profile;
+                    // Re-clear any stale warnings when a new file is loaded
+                    Object.keys(activeWarnings).forEach(k => delete activeWarnings[k]);
+                    updateWarningsPanel();
+                    // Re-validate any already-checked metrics against the new profile
+                    document.querySelectorAll('input[name="metrics[]"]:checked').forEach(cb => {
+                        const w = validateMetric(cb.value, dataProfile);
+                        if (w) activeWarnings[cb.value] = w;
+                    });
+                    updateWarningsPanel();
+                }
+                if (data.sheets && data.sheets.length > 0) {
+                    allSheetsData = data.sheets;
+                    
+                    // Mezclar todas las columnas únicas para el selector de variables
+                    let uniqueCols = new Set();
+                    allSheetsData.forEach(sheet => {
+                        sheet.columns.forEach(c => uniqueCols.add(c));
+                    });
+                    availableColumns = Array.from(uniqueCols);
+                    
+                    const vList = document.getElementById('variablesList');
+                    if (vList) vList.innerHTML = '';
+                    addVariableRow();
+                    if (columnSelectionContainer) columnSelectionContainer.classList.remove('hidden');
+                    
+                    if (previewContainer) {
+                        try {
+                            const selector = document.getElementById('previewSelector');
+                            if (selector) {
+                                selector.innerHTML = '';
+                                if (allSheetsData.length > 1) {
+                                    allSheetsData.forEach((sheet, idx) => {
+                                        selector.innerHTML += `<option value="${idx}">${sheet.name}</option>`;
+                                    });
+                                    selector.classList.remove('hidden');
+                                    selector.onchange = (e) => renderPreviewSheet(allSheetsData[e.target.value]);
+                                } else {
+                                    selector.classList.add('hidden');
+                                }
+                            }
+                            renderPreviewSheet(allSheetsData[0]);
+                            previewContainer.classList.remove('hidden');
+                        } catch (e) {
+                            console.error("Preview render error:", e);
+                        }
+                    }
+                }
+            } else {
+                console.error("Error API:", await resp.json());
+            }
+        } catch (e) {
+            console.error("Error fetching columns", e);
+        }
+    }
+
+    function renderPreviewSheet(sheetData) {
+        const thead = document.getElementById('dataPreviewHead');
+        const tbody = document.getElementById('dataPreviewBody');
+        if (thead && tbody && sheetData) {
+            let headHtml = '<tr>';
+            sheetData.columns.forEach(col => {
+                headHtml += '<th class="px-4 py-3 font-medium tracking-wider">' + col + '</th>';
+            });
+            headHtml += '</tr>';
+            thead.innerHTML = headHtml;
+            
+            let bodyHtml = '';
+            sheetData.preview.forEach(row => {
+                bodyHtml += '<tr>';
+                sheetData.columns.forEach(col => {
+                    bodyHtml += '<td class="px-4 py-3 whitespace-nowrap">' + (row[col] !== null && row[col] !== undefined ? row[col] : '-') + '</td>';
+                });
+                bodyHtml += '</tr>';
+            });
+            tbody.innerHTML = bodyHtml;
+        }
+    }
+
+    function showFileName() {
+        if (fileInput.files.length > 0) {
+            if (fileNameDisplay) {
+                fileNameDisplay.innerHTML = '';
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    fileNameDisplay.innerHTML += `<span class="inline-block bg-white/70 border border-violet-200 text-violet-700 px-3 py-1 rounded-full text-xs font-semibold mr-2 mt-2 shadow-sm text-center">📦 ${fileInput.files[i].name}</span>`;
+                }
+            }
+            if (fileDisplayContainer) fileDisplayContainer.classList.remove('hidden');
+            fetchColumnsForFiles(fileInput.files);
+        } else {
+            if (fileDisplayContainer) fileDisplayContainer.classList.add('hidden');
+            const colContainer = document.getElementById('variableBuilderContainer');
+            if (colContainer) colContainer.classList.add('hidden');
+            const previewContainer = document.getElementById('dataPreviewContainer');
+            if (previewContainer) previewContainer.classList.add('hidden');
+        }
+    }
+
+    if (removeFileBtn) {
+        removeFileBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fileInput.value = ''; // clean input
+            const vList = document.getElementById('variablesList');
+            if (vList) vList.innerHTML = ''; // Limpiar variables seleccionadas
+            showFileName();
+            if (errorAlert) errorAlert.classList.add('hidden');
+        });
+    }
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        errorAlert.classList.add('hidden');
+        if (errorAlert) errorAlert.classList.add('hidden');
 
         if (!fileInput.files.length) {
             showError("Por favor selecciona un documento para iniciar el análisis.");
             return;
         }
-        
+
         const checkedBoxOptions = document.querySelectorAll('input[name="metrics[]"]:checked');
-        if(checkedBoxOptions.length === 0){
+        if (checkedBoxOptions.length === 0) {
             showError("Debes seleccionar al menos una métrica a calcular en el paso 2.");
             return;
         }
 
-        // --- Refactorización de Extracción de Datos (Cero Mismatch) ---
         const formData = new FormData();
-        
-        // Clave 'file': Coincide con request.FILES.get('file')
-        formData.append('file', fileInput.files[0]);
-        
-        // Clave 'metrics[]': Coincide con request.POST.getlist('metrics[]')
+        for (let i = 0; i < fileInput.files.length; i++) {
+            formData.append('file', fileInput.files[i]);
+        }
+
         checkedBoxOptions.forEach(checkbox => {
             formData.append('metrics[]', checkbox.value);
         });
-        
-        // Clave 'format': Coincide con request.POST.get('format')
+
         const formatSelect = document.querySelector('input[name="format"]:checked');
         const format = formatSelect ? formatSelect.value : 'excel';
         formData.append('format', format);
-        
-        // Clave 'layout': Orientación de la tabla
+
         const layoutSelect = document.querySelector('input[name="layout"]:checked');
         const layout = layoutSelect ? layoutSelect.value : 'horizontal';
         formData.append('layout', layout);
-        
-        // Clave 'chart_type': Tipo de Gráfico de visualización
-        const chartTypeSelect = document.querySelector('select[name="chart_type"]');
-        formData.append('chart_type', chartTypeSelect.value);
-        
+
+        const detailLevel = document.getElementById('detailLevel');
+        if (detailLevel) {
+            formData.append('detail_level', detailLevel.value);
+        }
+
+        const rows = document.querySelectorAll('.row-variable');
+        if (rows.length === 0) {
+            showError("Debe añadir al menos una variable en el constructor.");
+            return;
+        }
+
+        let variablesArr = [];
+        rows.forEach(r => {
+            variablesArr.push({
+                columna: r.querySelector('.var-col').value,
+                grafico: r.querySelector('.var-chart').value
+            });
+        });
+        formData.append('variables', JSON.stringify(variablesArr));
+
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Analizando los datos...';
+        submitBtn.innerHTML = '<svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Procesando Múltiples Variables...';
 
-        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
+        const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (!csrfInput) { showError("CSRF token no encontrado"); return; }
+        
         try {
             const response = await fetch('/', {
                 method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrftoken
-                },
+                headers: { 'X-CSRFToken': csrfInput.value },
                 body: formData
             });
 
@@ -289,30 +480,146 @@
                 throw new Error(errData.error || 'Error interno del servidor Django.');
             }
 
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = format === 'excel' ? 'Reporte_Analitico.xlsx' : 'Reporte_Analitico.pdf';
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            
+            const data = await response.json();
+
+            form.classList.add('hidden');
+            const previewContainer = document.getElementById('previewContainer');
+            if (previewContainer) previewContainer.classList.remove('hidden');
+
+            const chartsContainer = document.getElementById('previewChartsContainer');
+            if (chartsContainer) {
+                chartsContainer.innerHTML = '';
+                if (data.images && data.images.length > 0) {
+                    data.images.forEach(imgData => {
+                        const box = document.createElement('div');
+                        box.className = 'bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center hover:shadow-md transition';
+                        box.className = 'bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col items-center hover:shadow-md transition';
+                        box.innerHTML = '<h4 class="text-sm font-semibold text-slate-800 dark:text-slate-200 tracking-wide mb-2">' + imgData.target_column + '</h4><img src="data:image/png;base64,' + imgData.base64 + '" alt="Chart ' + imgData.target_column + '" class="max-w-full h-auto rounded">';
+                        chartsContainer.appendChild(box);
+                    });
+                }
+            }
+
+            const thRow = document.getElementById('previewTableHeadRow');
+            if (thRow) {
+                thRow.innerHTML = '<th class="py-3 px-6 text-slate-800 dark:text-slate-200 font-semibold text-sm border-b border-slate-200 dark:border-slate-700">Métrica Evaluada</th>';
+                if (data.variables) {
+                    data.variables.forEach(v => {
+                        thRow.innerHTML += '<th class="py-3 px-6 text-slate-800 dark:text-slate-200 font-semibold text-sm border-b border-slate-200 dark:border-slate-700 text-center">' + v + '</th>';
+                    });
+                }
+            }
+
+            const previewTableBody = document.getElementById('previewTableBody');
+            if (previewTableBody) {
+                previewTableBody.innerHTML = '';
+                for (const [metricName, varsDict] of Object.entries(data.results_pivot)) {
+                    let formattedMetricName = metricName.replace(/_/g, ' ');
+                    formattedMetricName = formattedMetricName.charAt(0).toUpperCase() + formattedMetricName.slice(1);
+
+                    // If the value is an object (e.g. cuartiles/deciles returning sub-keys), expand into sub-rows
+                    const firstVal = typeof varsDict === 'object' ? Object.values(varsDict)[0] : null;
+                    if (firstVal !== null && typeof firstVal === 'object' && !Array.isArray(firstVal)) {
+                        // Expand position metric sub-keys into individual rows
+                        const subKeys = new Set();
+                        Object.values(varsDict).forEach(subDict => {
+                            if (typeof subDict === 'object') Object.keys(subDict).forEach(k => subKeys.add(k));
+                        });
+                        subKeys.forEach(sk => {
+                            const tr = document.createElement('tr');
+                            tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-150';
+                            let rowHtml = '<td class="py-3 px-6 text-sm text-slate-800 dark:text-slate-200 font-medium border-b border-slate-100 dark:border-slate-700">' + formattedMetricName + ' – ' + sk + '</td>';
+                            if (data.variables) {
+                                data.variables.forEach(v => {
+                                    let subDict = varsDict[v];
+                                    let cellVal = (subDict && subDict[sk] !== undefined) ? subDict[sk] : 'N/A';
+                                    rowHtml += '<td class="py-3 px-6 text-sm text-slate-600 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700 whitespace-pre-wrap font-mono align-top text-center">' + cellVal + '</td>';
+                                });
+                            }
+                            tr.innerHTML = rowHtml;
+                            previewTableBody.appendChild(tr);
+                        });
+                    } else {
+                        const tr = document.createElement('tr');
+                        tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors duration-150';
+                        let rowHtml = '<td class="py-3 px-6 text-sm text-slate-800 dark:text-slate-200 font-medium border-b border-slate-100 dark:border-slate-700">' + formattedMetricName + '</td>';
+                        if (data.variables) {
+                            data.variables.forEach(v => {
+                                let cellVal = varsDict[v] !== undefined ? varsDict[v] : 'N/A';
+                                // Handle object values gracefully
+                                if (typeof cellVal === 'object' && cellVal !== null) {
+                                    cellVal = Object.entries(cellVal).map(([k, vv]) => k + ': ' + vv).join('\n');
+                                }
+                                rowHtml += '<td class="py-3 px-6 text-sm text-slate-600 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700 whitespace-pre-wrap font-mono align-top text-center">' + cellVal + '</td>';
+                            });
+                        }
+                        tr.innerHTML = rowHtml;
+                        previewTableBody.appendChild(tr);
+                    }
+                }
+            }
+
+            const btnNewAnalysis = document.getElementById('btnNewAnalysis');
+            if (btnNewAnalysis) {
+                btnNewAnalysis.onclick = () => {
+                    // Hide results, show form
+                    if (previewContainer) previewContainer.classList.add('hidden');
+                    form.classList.remove('hidden');
+
+                    // Reset file inputs
+                    fileInput.value = '';
+                    if (fileDisplayContainer) fileDisplayContainer.classList.add('hidden');
+                    if (fileNameDisplay) fileNameDisplay.innerHTML = '';
+
+                    // Reset data preview panel
+                    const dataPreviewContainer = document.getElementById('dataPreviewContainer');
+                    if (dataPreviewContainer) dataPreviewContainer.classList.add('hidden');
+                    const selector = document.getElementById('previewSelector');
+                    if (selector) { selector.innerHTML = ''; selector.classList.add('hidden'); }
+                    allSheetsData = [];
+                    availableColumns = [];
+
+                    // Reset variable builder
+                    const vList = document.getElementById('variablesList');
+                    if (vList) vList.innerHTML = '';
+                    const varBuilderContainer = document.getElementById('variableBuilderContainer');
+                    if (varBuilderContainer) varBuilderContainer.classList.add('hidden');
+
+                    // Reset metrics checkboxes
+                    document.querySelectorAll('input[name="metrics[]"]').forEach(cb => cb.checked = false);
+                    const selectAll = document.getElementById('selectAllMetrics');
+                    if (selectAll) selectAll.checked = false;
+
+                    // Reset button state
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = 'Analizar y Generar Documento';
+
+                    // Scroll to top
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                };
+            }
+
+            const btnDownloadExcel = document.getElementById('btnDownloadExcel');
+            if (btnDownloadExcel) btnDownloadExcel.onclick = () => { window.location.href = '/download/excel/'; };
+
+            const btnDownloadPdf = document.getElementById('btnDownloadPdf');
+            if (btnDownloadPdf) btnDownloadPdf.onclick = () => { window.location.href = '/download/pdf/'; };
+
         } catch (error) {
             showError(error.message);
         } finally {
             submitBtn.disabled = false;
-            submitBtn.innerHTML = 'Analizar y Generar';
+            submitBtn.innerHTML = 'Analizar y Generar Documento';
         }
     });
 
     function showError(msg) {
-        errorMessage.textContent = msg;
-        errorAlert.classList.remove('hidden');
-        // Scroll hasta arriba suavemente
+        if (errorMessage) errorMessage.textContent = msg;
+        if (errorAlert) errorAlert.classList.remove('hidden');
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+
+}); // Fin DOMContentLoaded
 </script>
-</body>
-</html>
+
+{% endblock content %}
