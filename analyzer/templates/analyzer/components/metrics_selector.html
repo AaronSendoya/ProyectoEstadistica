@@ -23,7 +23,8 @@
         <!-- Warning entries injected here by JS -->
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <!-- Fila 1: Tendencia Central | Medidas Especiales | Dispersión | Forma y Frecuencias -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         <!-- Tendencia Central -->
         <div class="bg-slate-50 dark:bg-slate-700/50 p-5 rounded-xl border border-slate-200 dark:border-slate-600">
             <h3 class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4 uppercase tracking-wider text-center">Tendencia Central</h3>
@@ -31,8 +32,16 @@
                 <label class="flex items-center cursor-pointer group"><input type="checkbox" name="metrics[]" value="media" class="form-checkbox bg-white/40 dark:bg-slate-700/40 border-slate-200 dark:border-slate-600 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 rounded-xl transition-all text-slate-800 dark:text-slate-200 h-4 w-4"> <span class="ml-3 text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-slate-800 dark:group-hover:text-slate-100 transition-colors">Media</span></label>
                 <label class="flex items-center cursor-pointer group"><input type="checkbox" name="metrics[]" value="mediana" class="form-checkbox bg-white/40 dark:bg-slate-700/40 border-slate-200 dark:border-slate-600 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 rounded-xl transition-all text-slate-800 dark:text-slate-200 h-4 w-4"> <span class="ml-3 text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-slate-800 dark:group-hover:text-slate-100 transition-colors">Mediana</span></label>
                 <label class="flex items-center cursor-pointer group"><input type="checkbox" name="metrics[]" value="moda" class="form-checkbox bg-white/40 dark:bg-slate-700/40 border-slate-200 dark:border-slate-600 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 rounded-xl transition-all text-slate-800 dark:text-slate-200 h-4 w-4"> <span class="ml-3 text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-slate-800 dark:group-hover:text-slate-100 transition-colors">Moda</span></label>
+            </div>
+        </div>
+
+        <!-- Medidas Especiales -->
+        <div class="bg-slate-50 dark:bg-slate-700/50 p-5 rounded-xl border border-slate-200 dark:border-slate-600">
+            <h3 class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4 uppercase tracking-wider text-center">Medidas Especiales</h3>
+            <div class="space-y-3 flex flex-col">
                 <label class="flex items-center cursor-pointer group"><input type="checkbox" name="metrics[]" value="media_armonica" class="form-checkbox bg-white/40 dark:bg-slate-700/40 border-slate-200 dark:border-slate-600 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 rounded-xl transition-all text-slate-800 dark:text-slate-200 h-4 w-4"> <span class="ml-3 text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-slate-800 dark:group-hover:text-slate-100 transition-colors">Media Armónica</span></label>
                 <label class="flex items-center cursor-pointer group"><input type="checkbox" name="metrics[]" value="media_geometrica" class="form-checkbox bg-white/40 dark:bg-slate-700/40 border-slate-200 dark:border-slate-600 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 rounded-xl transition-all text-slate-800 dark:text-slate-200 h-4 w-4"> <span class="ml-3 text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-slate-800 dark:group-hover:text-slate-100 transition-colors">Media Geométrica</span></label>
+                <label class="flex items-center cursor-pointer group"><input type="checkbox" name="metrics[]" value="media_movil" class="form-checkbox bg-white/40 dark:bg-slate-700/40 border-slate-200 dark:border-slate-600 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 rounded-xl transition-all text-slate-800 dark:text-slate-200 h-4 w-4"> <span class="ml-3 text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-slate-800 dark:group-hover:text-slate-100 transition-colors">Media Móvil (SMA)</span></label>
             </div>
         </div>
 
@@ -49,37 +58,45 @@
             </div>
         </div>
 
-        <!-- Posición -->
-        <div class="bg-slate-50 dark:bg-slate-700/50 p-5 rounded-xl border border-slate-200 dark:border-slate-600 flex flex-col">
-            <h3 class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4 uppercase tracking-wider text-center">Posición</h3>
-            
-            <div class="flex flex-col space-y-5">
-                <!-- Cuartiles -->
-                <div>
-                    <h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Cuartiles</h4>
-                    <div class="grid grid-cols-2 gap-2" id="cuartilesContainer">
-                        <!-- Inyectado vía JS -->
-                    </div>
+        <!-- Medidas de Forma y Distribución de Frecuencias -->
+        <div class="bg-slate-50 dark:bg-slate-700/50 p-5 rounded-xl border border-slate-200 dark:border-slate-600">
+            <h3 class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4 uppercase tracking-wider text-center">Forma y Frecuencias</h3>
+            <div class="space-y-3 flex flex-col">
+                <label class="flex items-center cursor-pointer group"><input type="checkbox" name="metrics[]" value="asimetria" class="form-checkbox bg-white/40 dark:bg-slate-700/40 border-slate-200 dark:border-slate-600 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 rounded-xl transition-all text-slate-800 dark:text-slate-200 h-4 w-4"> <span class="ml-3 text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-slate-800 dark:group-hover:text-slate-100 transition-colors">Asimetría (Skewness)</span></label>
+                <label class="flex items-center cursor-pointer group"><input type="checkbox" name="metrics[]" value="curtosis" class="form-checkbox bg-white/40 dark:bg-slate-700/40 border-slate-200 dark:border-slate-600 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 rounded-xl transition-all text-slate-800 dark:text-slate-200 h-4 w-4"> <span class="ml-3 text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-slate-800 dark:group-hover:text-slate-100 transition-colors">Curtosis (Kurtosis)</span></label>
+                <div class="border-t border-slate-200 dark:border-slate-600 pt-3 mt-1">
+                    <label class="flex items-center cursor-pointer group"><input type="checkbox" name="metrics[]" value="tabla_frecuencias" class="form-checkbox bg-white/40 dark:bg-slate-700/40 border-slate-200 dark:border-slate-600 backdrop-blur-sm focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 rounded-xl transition-all text-slate-800 dark:text-slate-200 h-4 w-4"> <span class="ml-3 text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-slate-800 dark:group-hover:text-slate-100 transition-colors">Tabla de Frecuencias</span></label>
                 </div>
-                
-                <!-- Deciles -->
-                <div>
-                    <h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Deciles (1-9)</h4>
-                    <div class="h-32 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 p-2 rounded-lg shadow-inner shrink-0" id="decilesContainer">
-                        <div class="grid grid-cols-2 gap-2">
-                            <!-- Inyectado vía JS -->
-                        </div>
-                    </div>
-                </div>
+            </div>
+        </div>
+    </div>
 
-                <!-- Percentiles -->
-                <div>
-                    <h4 class="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">Percentiles (1-99)</h4>
-                    <div class="h-32 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 p-2 rounded-lg shadow-inner shrink-0" id="percentilesContainer">
-                        <div class="grid grid-cols-2 gap-2">
-                            <!-- Inyectado vía JS -->
-                        </div>
-                    </div>
+    <!-- Fila 2: Posición (ocupa todo el ancho) -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Cuartiles -->
+        <div class="bg-slate-50 dark:bg-slate-700/50 p-5 rounded-xl border border-slate-200 dark:border-slate-600">
+            <h3 class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4 uppercase tracking-wider text-center">Posición — Cuartiles</h3>
+            <div class="grid grid-cols-2 gap-2" id="cuartilesContainer">
+                <!-- Inyectado vía JS -->
+            </div>
+        </div>
+
+        <!-- Deciles -->
+        <div class="bg-slate-50 dark:bg-slate-700/50 p-5 rounded-xl border border-slate-200 dark:border-slate-600">
+            <h3 class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4 uppercase tracking-wider text-center">Posición — Deciles (1-9)</h3>
+            <div class="h-40 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 p-2 rounded-lg shadow-inner" id="decilesContainer">
+                <div class="grid grid-cols-3 gap-2">
+                    <!-- Inyectado vía JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Percentiles -->
+        <div class="bg-slate-50 dark:bg-slate-700/50 p-5 rounded-xl border border-slate-200 dark:border-slate-600">
+            <h3 class="text-sm font-medium text-slate-500 dark:text-slate-400 mb-4 uppercase tracking-wider text-center">Posición — Percentiles (1-99)</h3>
+            <div class="h-40 overflow-y-auto bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 p-2 rounded-lg shadow-inner" id="percentilesContainer">
+                <div class="grid grid-cols-3 gap-2">
+                    <!-- Inyectado vía JS -->
                 </div>
             </div>
         </div>

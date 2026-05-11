@@ -64,6 +64,18 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'coeficiente_variacion':
                 if (n < 2) return '\u26a0\ufe0f Coef. Variaci\u00f3n: se necesitan al menos 2 datos.';
                 break;
+            case 'media_movil':
+                if (n < 3) return '\u26a0\ufe0f Media M\u00f3vil: se necesitan al menos 3 datos (ventana m\u00ednima).';
+                break;
+            case 'asimetria':
+                if (n < 3) return '\u26a0\ufe0f Asimetr\u00eda: se necesitan al menos 3 datos (tienes ' + n + ').';
+                break;
+            case 'curtosis':
+                if (n < 4) return '\u26a0\ufe0f Curtosis: se necesitan al menos 4 datos (tienes ' + n + ').';
+                break;
+            case 'tabla_frecuencias':
+                if (n < 2) return '\u26a0\ufe0f Tabla de Frecuencias: se necesitan al menos 2 datos.';
+                break;
             default:
                 if (val.startsWith('cuartil_')) {
                     if (n < 4)  return '\u26a0\ufe0f Cuartiles: se necesitan al menos 4 datos (tienes ' + n + ').';
@@ -257,6 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 '<option value="line">Lineal</option>' +
                 '<option value="pie">Circular</option>' +
                 '<option value="scatter">Dispersión</option>' +
+                '<option value="frequency">Frecuencias</option>' +
             '</select>' +
             '<button type="button" class="btn-remove-var text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/30 p-2 rounded-lg transition-colors">' +
                 '<svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>' +
@@ -556,6 +569,77 @@ document.addEventListener('DOMContentLoaded', () => {
                         tr.innerHTML = rowHtml;
                         previewTableBody.appendChild(tr);
                     }
+                }
+            }
+
+            // ── Renderizar Tablas de Distribución de Frecuencias ──
+            if (data.freq_tables && Object.keys(data.freq_tables).length > 0) {
+                const previewContainer2 = document.getElementById('previewContainer');
+                // Crear el contenedor de tablas de frecuencias si no existe
+                let ftSection = document.getElementById('freqTablesSection');
+                if (!ftSection) {
+                    ftSection = document.createElement('div');
+                    ftSection.id = 'freqTablesSection';
+                    ftSection.className = 'mt-8';
+                    // Insertar antes de los botones de acción
+                    const actionsBar = previewContainer2.querySelector('.flex.flex-col.sm\\:flex-row');
+                    if (actionsBar) {
+                        actionsBar.parentElement.insertBefore(ftSection, actionsBar);
+                    } else {
+                        previewContainer2.querySelector('.bg-white\\/70, .dark\\:bg-slate-800\\/70').appendChild(ftSection);
+                    }
+                }
+                ftSection.innerHTML = '';
+
+                const ftTitle = document.createElement('h3');
+                ftTitle.className = 'text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4 border-b border-slate-100 dark:border-slate-700 pb-2';
+                ftTitle.textContent = 'Tablas de Distribución de Frecuencias';
+                ftSection.appendChild(ftTitle);
+
+                for (const [varName, ftData] of Object.entries(data.freq_tables)) {
+                    const varBlock = document.createElement('div');
+                    varBlock.className = 'mb-6';
+
+                    // Título de variable
+                    const varTitle = document.createElement('h4');
+                    varTitle.className = 'text-sm font-semibold text-indigo-600 dark:text-indigo-400 mb-1';
+                    varTitle.textContent = 'Variable: ' + varName;
+                    varBlock.appendChild(varTitle);
+
+                    // Info de parámetros
+                    const infoP = document.createElement('p');
+                    infoP.className = 'text-xs text-slate-500 dark:text-slate-400 mb-3';
+                    infoP.textContent = 'n = ' + ftData.n + ' | k (clases) = ' + ftData.k + ' | Rango = ' + ftData.rango + ' | Amplitud = ' + ftData.amplitud;
+                    varBlock.appendChild(infoP);
+
+                    // Tabla
+                    const tableWrapper = document.createElement('div');
+                    tableWrapper.className = 'overflow-x-auto bg-white dark:bg-slate-900/50 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm';
+
+                    let tableHtml = '<table class="w-full text-left border-collapse">';
+                    tableHtml += '<thead class="bg-indigo-50 dark:bg-indigo-900/30 border-b border-slate-200 dark:border-slate-700">';
+                    tableHtml += '<tr>';
+                    ['Intervalo', 'Marca (xi)', 'fi', 'Fi', 'hi', 'Hi'].forEach(h => {
+                        tableHtml += '<th class="py-2.5 px-4 text-slate-700 dark:text-slate-300 font-semibold text-xs uppercase tracking-wider text-center">' + h + '</th>';
+                    });
+                    tableHtml += '</tr></thead><tbody class="divide-y divide-slate-100 dark:divide-slate-700">';
+
+                    ftData.filas.forEach((fila, idx) => {
+                        const bgClass = idx % 2 === 0 ? '' : 'bg-slate-50/50 dark:bg-slate-800/30';
+                        tableHtml += '<tr class="' + bgClass + ' hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">';
+                        tableHtml += '<td class="py-2 px-4 text-sm text-slate-700 dark:text-slate-300 font-mono text-center">' + fila.intervalo + '</td>';
+                        tableHtml += '<td class="py-2 px-4 text-sm text-slate-600 dark:text-slate-400 font-mono text-center">' + fila.xi + '</td>';
+                        tableHtml += '<td class="py-2 px-4 text-sm text-slate-600 dark:text-slate-400 font-mono text-center font-semibold">' + fila.fi + '</td>';
+                        tableHtml += '<td class="py-2 px-4 text-sm text-slate-600 dark:text-slate-400 font-mono text-center">' + fila.Fi + '</td>';
+                        tableHtml += '<td class="py-2 px-4 text-sm text-slate-600 dark:text-slate-400 font-mono text-center">' + fila.hi + '</td>';
+                        tableHtml += '<td class="py-2 px-4 text-sm text-slate-600 dark:text-slate-400 font-mono text-center">' + fila.Hi + '</td>';
+                        tableHtml += '</tr>';
+                    });
+
+                    tableHtml += '</tbody></table>';
+                    tableWrapper.innerHTML = tableHtml;
+                    varBlock.appendChild(tableWrapper);
+                    ftSection.appendChild(varBlock);
                 }
             }
 

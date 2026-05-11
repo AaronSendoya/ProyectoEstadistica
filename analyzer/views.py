@@ -76,7 +76,8 @@ def index_view(request):
             results_pivot = {}
             images_base64_list = []
             valid_data_for_reports = {} 
-            chart_types_for_reports = {} 
+            chart_types_for_reports = {}
+            freq_tables = {}  # Tablas de frecuencias por variable
 
             for var_obj in variables_list:
                 target_column = var_obj.get('columna')
@@ -130,6 +131,10 @@ def index_view(request):
                 
                 # Acumular resultados en el pivote
                 for metric_name, metric_val in var_results.items():
+                    # Separar tabla de frecuencias del pivot normal
+                    if isinstance(metric_val, dict) and metric_val.get('__tipo__') == 'tabla_frecuencias':
+                        freq_tables[target_column] = metric_val
+                        continue
                     if metric_name not in results_pivot:
                         results_pivot[metric_name] = {}
                     results_pivot[metric_name][target_column] = metric_val
@@ -155,9 +160,11 @@ def index_view(request):
             request.session['last_data_dict'] = valid_data_for_reports
             request.session['last_chart_types'] = chart_types_for_reports
             request.session['last_layout'] = layout
+            request.session['last_freq_tables'] = freq_tables
 
             return JsonResponse({
                 'results_pivot': results_pivot,
+                'freq_tables': freq_tables,
                 'images': images_base64_list,
                 'variables': [var['columna'] for var in variables_list]
             })
@@ -174,18 +181,19 @@ def download_report(request, format_type):
     data_dict = request.session.get('last_data_dict', {})
     chart_types_dict = request.session.get('last_chart_types', {})
     layout = request.session.get('last_layout', 'horizontal')
+    freq_tables = request.session.get('last_freq_tables', {})
 
     if not results_pivot:
         return JsonResponse({'error': 'No hay datos en sesión para generar el reporte.'}, status=400)
 
     try:
         if format_type == 'pdf':
-            pdf_bytes = generate_pdf_report(results_pivot, data_dict, chart_types_dict, layout)
+            pdf_bytes = generate_pdf_report(results_pivot, data_dict, chart_types_dict, layout, freq_tables)
             response = HttpResponse(pdf_bytes, content_type='application/pdf')
             response['Content-Disposition'] = 'attachment; filename="reporte_estadistico.pdf"'
             return response
         elif format_type == 'excel':
-            excel_bytes = generate_excel_report(results_pivot, data_dict, chart_types_dict, layout)
+            excel_bytes = generate_excel_report(results_pivot, data_dict, chart_types_dict, layout, freq_tables)
             response = HttpResponse(excel_bytes, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
             response['Content-Disposition'] = 'attachment; filename="reporte_estadistico.xlsx"'
             return response
