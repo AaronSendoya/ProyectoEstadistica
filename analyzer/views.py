@@ -36,9 +36,29 @@ def peek_file_columns(request):
             return JsonResponse({'error': str(e)}, status=500)
     return JsonResponse({'error': 'Método no permitido'}, status=405)
 
-def index_view(request):
+def home_view(request):
+    """Vista de inicio con dashboard resumen."""
+    # Obtener estadísticas para el dashboard
+    total_analisis = AnalysisLog.objects.count()
+    ultimos_analisis = AnalysisLog.objects.order_by('-created_at')[:5]
+    
+    # Contar formatos más usados
+    formatos = {}
+    for log in AnalysisLog.objects.all():
+        fmt = log.export_format
+        formatos[fmt] = formatos.get(fmt, 0) + 1
+    
+    context = {
+        'total_analisis': total_analisis,
+        'ultimos_analisis': ultimos_analisis,
+        'formatos_populares': formatos,
+    }
+    return render(request, 'analyzer/home.html', context)
+
+
+def analysis_view(request):
     if request.method == 'GET':
-        return render(request, 'analyzer/index.html')
+        return render(request, 'analyzer/analysis.html')
 
     elif request.method == 'POST':
         try:
@@ -175,6 +195,83 @@ def index_view(request):
         except Exception as e:
             print(f"DEBUG: Error interno no controlado - {str(e)}")
             return JsonResponse({'error': f"Error interno del servidor: {str(e)}"}, status=500)
+
+def history_view(request):
+    """Vista del historial de análisis."""
+    logs = AnalysisLog.objects.order_by('-created_at')
+    return render(request, 'analyzer/history.html', {'logs': logs})
+
+
+def help_view(request):
+    """Vista de ayuda y guía de métricas."""
+    return render(request, 'analyzer/help.html')
+
+
+def word_counter_view(request):
+    """Vista para conteo de palabras en textos."""
+    if request.method == 'GET':
+        return render(request, 'analyzer/word_counter.html')
+
+    elif request.method == 'POST':
+        try:
+            text = request.POST.get('text', '')
+            uploaded_files = request.FILES.getlist('files')
+
+            # Procesar archivos subidos si existen
+            if uploaded_files:
+                for f in uploaded_files:
+                    if f.name.endswith('.txt'):
+                        text += f.read().decode('utf-8') + '\n'
+                    elif f.name.endswith('.docx'):
+                        from docx import Document
+                        doc = Document(f)
+                        for para in doc.paragraphs:
+                            text += para.text + '\n'
+
+            if not text.strip():
+                return JsonResponse({'error': 'No se proporcionó texto para analizar'}, status=400)
+
+            # Análisis de palabras
+            words = text.split()
+            word_count = len(words)
+
+            # Contar palabras únicas (ignorando mayúsculas/minúsculas y puntuación básica)
+            import re
+            clean_words = [re.sub(r'[^\w\s]', '', w).lower() for w in words]
+            clean_words = [w for w in clean_words if w]
+            unique_words = set(clean_words)
+
+            # Frecuencia de palabras
+            from collections import Counter
+            word_freq = Counter(clean_words)
+            most_common = word_freq.most_common(20)
+
+            # Estadísticas adicionales
+            char_count = len(text)
+            char_count_no_spaces = len(text.replace(' ', '').replace('\n', ''))
+            sentence_count = len([s for s in text.split('.') if s.strip()])
+            paragraph_count = len([p for p in text.split('\n\n') if p.strip()])
+
+            # Longitud promedio de palabras
+            avg_word_length = sum(len(w) for w in clean_words) / len(clean_words) if clean_words else 0
+
+            result = {
+                'word_count': word_count,
+                'unique_words': len(unique_words),
+                'char_count': char_count,
+                'char_count_no_spaces': char_count_no_spaces,
+                'sentence_count': sentence_count,
+                'paragraph_count': paragraph_count,
+                'avg_word_length': round(avg_word_length, 2),
+                'most_common': most_common,
+                'text_preview': text[:500] + '...' if len(text) > 500 else text
+            }
+
+            return JsonResponse(result)
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
 
 def download_report(request, format_type):
     results_pivot = request.session.get('last_results_pivot')

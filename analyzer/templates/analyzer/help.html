@@ -1,0 +1,282 @@
+{% extends "base_analyzer.html" %}
+
+{% block title %}Ayuda - Analizador Estadístico{% endblock %}
+{% block page_title %}Guía de Uso{% endblock %}
+{% block page_subtitle %}Documentación de métricas y formatos soportados{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto space-y-8">
+    <!-- Quick Start -->
+    <div class="glass rounded-2xl p-8">
+        <h3 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-white">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                </svg>
+            </div>
+            Inicio Rápido
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="glass-card rounded-xl p-4 text-center">
+                <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-2 font-bold text-sm">1</div>
+                <p class="text-sm text-slate-600 dark:text-slate-300">Selecciona tu archivo (Excel, Word o PDF)</p>
+            </div>
+            <div class="glass-card rounded-xl p-4 text-center">
+                <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-2 font-bold text-sm">2</div>
+                <p class="text-sm text-slate-600 dark:text-slate-300">Elige las columnas/variables a analizar</p>
+            </div>
+            <div class="glass-card rounded-xl p-4 text-center">
+                <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-2 font-bold text-sm">3</div>
+                <p class="text-sm text-slate-600 dark:text-slate-300">Selecciona las métricas deseadas</p>
+            </div>
+            <div class="glass-card rounded-xl p-4 text-center">
+                <div class="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto mb-2 font-bold text-sm">4</div>
+                <p class="text-sm text-slate-600 dark:text-slate-300">Exporta en Excel o PDF</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Supported Formats -->
+    <div class="glass rounded-2xl p-8">
+        <h3 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-6 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+            </div>
+            Formatos Soportados
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="glass-card rounded-xl p-5">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                        <span class="text-lg font-bold text-green-600 dark:text-green-400">X</span>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-slate-800 dark:text-slate-100">Excel</h4>
+                        <p class="text-xs text-slate-500">.xlsx, .xls</p>
+                    </div>
+                </div>
+                <p class="text-sm text-slate-600 dark:text-slate-400">Soporta múltiples hojas. Extrae datos de todas las hojas automáticamente.</p>
+            </div>
+
+            <div class="glass-card rounded-xl p-5">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                        <span class="text-lg font-bold text-blue-600 dark:text-blue-400">W</span>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-slate-800 dark:text-slate-100">Word</h4>
+                        <p class="text-xs text-slate-500">.docx</p>
+                    </div>
+                </div>
+                <p class="text-sm text-slate-600 dark:text-slate-400">Extrae números de párrafos y tablas usando reconocimiento de patrones.</p>
+            </div>
+
+            <div class="glass-card rounded-xl p-5">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                        <span class="text-lg font-bold text-red-600 dark:text-red-400">P</span>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-slate-800 dark:text-slate-100">PDF</h4>
+                        <p class="text-xs text-slate-500">.pdf</p>
+                    </div>
+                </div>
+                <p class="text-sm text-slate-600 dark:text-slate-400">Extrae texto y números de documentos PDF con contenido seleccionable.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Metrics Reference -->
+    <div class="glass rounded-2xl p-8">
+        <h3 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-6 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                </svg>
+            </div>
+            Referencia de Métricas
+        </h3>
+
+        <div class="space-y-6">
+            <!-- Tendencia Central -->
+            <div class="glass-card rounded-xl p-5">
+                <h4 class="font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+                    Tendencia Central
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                    <div class="p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="font-medium text-slate-700 dark:text-slate-300">Media</span>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1">Promedio aritmético de los datos</p>
+                    </div>
+                    <div class="p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="font-medium text-slate-700 dark:text-slate-300">Mediana</span>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1">Valor central de datos ordenados</p>
+                    </div>
+                    <div class="p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="font-medium text-slate-700 dark:text-slate-300">Moda</span>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1">Valor que aparece con mayor frecuencia</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dispersión -->
+            <div class="glass-card rounded-xl p-5">
+                <h4 class="font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    Dispersión y Variabilidad
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+                    <div class="p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="font-medium text-slate-700 dark:text-slate-300">Rango</span>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1">Diferencia entre valor máximo y mínimo</p>
+                    </div>
+                    <div class="p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="font-medium text-slate-700 dark:text-slate-300">Varianza</span>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1">Promedio de desviaciones al cuadrado</p>
+                    </div>
+                    <div class="p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="font-medium text-slate-700 dark:text-slate-300">Desviación Estándar</span>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1">Raíz cuadrada de la varianza</p>
+                    </div>
+                    <div class="p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="font-medium text-slate-700 dark:text-slate-300">Coef. Variación</span>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1">Desviación estándar relativa a la media (%)</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Posición -->
+            <div class="glass-card rounded-xl p-5">
+                <h4 class="font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                    Medidas de Posición
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                    <div class="p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="font-medium text-slate-700 dark:text-slate-300">Cuartiles (Q1-Q4)</span>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1">División en 4 partes iguales (25%, 50%, 75%)</p>
+                    </div>
+                    <div class="p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="font-medium text-slate-700 dark:text-slate-300">Deciles (D1-D9)</span>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1">División en 10 partes iguales</p>
+                    </div>
+                    <div class="p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="font-medium text-slate-700 dark:text-slate-300">Percentiles (P1-P99)</span>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1">99 puntos de división porcentual</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Especiales -->
+            <div class="glass-card rounded-xl p-5">
+                <h4 class="font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+                    Medidas Especiales
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                    <div class="p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="font-medium text-slate-700 dark:text-slate-300">Media Armónica</span>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1">Inverso de la media de los inversos. Requiere valores > 0</p>
+                    </div>
+                    <div class="p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="font-medium text-slate-700 dark:text-slate-300">Media Geométrica</span>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1">Raíz n-ésima del producto. Requiere valores > 0</p>
+                    </div>
+                    <div class="p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="font-medium text-slate-700 dark:text-slate-300">Media Móvil (SMA)</span>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1">Promedio de ventana deslizante de 3 periodos</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Forma -->
+            <div class="glass-card rounded-xl p-5">
+                <h4 class="font-semibold text-slate-800 dark:text-slate-100 mb-3 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-pink-500"></span>
+                    Forma de la Distribución
+                </h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                    <div class="p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="font-medium text-slate-700 dark:text-slate-300">Asimetría (Skewness)</span>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1">Medida de simetría. >0: cola derecha, <0: cola izquierda</p>
+                    </div>
+                    <div class="p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="font-medium text-slate-700 dark:text-slate-300">Curtosis (Kurtosis)</span>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1">Medida de "puntiagudez". >0: más puntiaguda que normal</p>
+                    </div>
+                    <div class="p-3 bg-white/50 dark:bg-slate-800/50 rounded-lg">
+                        <span class="font-medium text-slate-700 dark:text-slate-300">Tabla de Frecuencias</span>
+                        <p class="text-slate-500 dark:text-slate-400 mt-1">Distribución completa con intervalos, marcas y frecuencias</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Levels -->
+    <div class="glass rounded-2xl p-8">
+        <h3 class="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-white">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+            </div>
+            Niveles de Detalle
+        </h3>
+        <div class="space-y-3">
+            <div class="flex items-start gap-4 p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl">
+                <div class="w-12 h-8 rounded bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-xs font-bold text-slate-600 dark:text-slate-400">1</div>
+                <div>
+                    <h4 class="font-medium text-slate-800 dark:text-slate-100">Directos</h4>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Solo muestra el resultado numérico final. Ideal para reportes ejecutivos.</p>
+                </div>
+            </div>
+            <div class="flex items-start gap-4 p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl">
+                <div class="w-12 h-8 rounded bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-xs font-bold text-blue-600 dark:text-blue-400">2</div>
+                <div>
+                    <h4 class="font-medium text-slate-800 dark:text-slate-100">Parcial</h4>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Muestra la fórmula utilizada y el resultado. Bueno para verificación rápida.</p>
+                </div>
+            </div>
+            <div class="flex items-start gap-4 p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl">
+                <div class="w-12 h-8 rounded bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-xs font-bold text-purple-600 dark:text-purple-400">3</div>
+                <div>
+                    <h4 class="font-medium text-slate-800 dark:text-slate-100">Completo</h4>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Fórmula, sustitución de valores y resultado. Perfecto para aprendizaje y documentación.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tips -->
+    <div class="glass-card rounded-2xl p-6 border-l-4 border-blue-500">
+        <h4 class="font-semibold text-slate-800 dark:text-slate-100 mb-2 flex items-center gap-2">
+            <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Consejos
+        </h4>
+        <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-400">
+            <li class="flex items-start gap-2">
+                <span class="text-blue-500 mt-1">•</span>
+                <span>Para datos con valores negativos o cero, evita usar media armónica o geométrica</span>
+            </li>
+            <li class="flex items-start gap-2">
+                <span class="text-blue-500 mt-1">•</span>
+                <span>La tabla de frecuencias usa la regla de Sturges para determinar el número de clases</span>
+            </li>
+            <li class="flex items-start gap-2">
+                <span class="text-blue-500 mt-1">•</span>
+                <span>Puedes analizar hasta 5 variables simultáneas para comparar resultados</span>
+            </li>
+            <li class="flex items-start gap-2">
+                <span class="text-blue-500 mt-1">•</span>
+                <span>Los archivos Excel con múltiples hojas analizan todas las hojas automáticamente</span>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
