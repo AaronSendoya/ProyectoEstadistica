@@ -1,58 +1,105 @@
 import numpy as np
+from collections import Counter
 
-def estimate_transition_matrix(sequence):
+# Máximo de estados en la cadena (evita explosión combinatoria N×N en .txt largos)
+TOP_N_KEYWORDS = 20
+MIN_SEQUENCE_LENGTH = 2
+EDGE_DISPLAY_THRESHOLD = 0.05
+
+
+def get_top_keyword_states(sequence, top_n=TOP_N_KEYWORDS):
+    """Devuelve las top_n palabras más frecuentes en la secuencia."""
+    if not sequence:
+        return []
+    return [word for word, _ in Counter(sequence).most_common(top_n)]
+
+
+def filter_sequence_to_top_keywords(sequence, top_n=TOP_N_KEYWORDS):
+    """
+    Filtra la secuencia para conservar solo transiciones entre palabras del Top N.
+    Returns:
+        tuple: (secuencia_filtrada, lista_top_keywords)
+    """
+    top_keywords = get_top_keyword_states(sequence, top_n)
+    if not top_keywords:
+        return [], []
+    allowed = set(top_keywords)
+    filtered = [w for w in sequence if w in allowed]
+    return filtered, top_keywords
+
+
+def build_top_transitions_list(states, matrix, threshold=EDGE_DISPLAY_THRESHOLD, limit=10):
+    """Lista las transiciones con P > threshold, ordenadas por probabilidad (máx. limit)."""
+    transitions = []
+    for i, from_s in enumerate(states):
+        for j, to_s in enumerate(states):
+            prob = float(matrix[i][j])
+            if prob >= threshold:
+                transitions.append({
+                    'from': from_s,
+                    'to': to_s,
+                    'probability': round(prob, 4),
+                })
+    transitions.sort(key=lambda x: x['probability'], reverse=True)
+    return transitions[:limit]
+
+
+def estimate_transition_matrix(sequence, top_n=TOP_N_KEYWORDS):
     """
     Estima la matriz de transición desde una secuencia de estados observados.
-    Maneja correctamente secuencias de palabras clave con suavizado Laplace.
-    
+    Aplica filtro Top N Keywords antes de construir la matriz (máx. 20×20).
+
     Args:
         sequence (list): Lista de valores categóricos (estados/palabras clave).
+        top_n (int): Número máximo de estados (palabras clave más frecuentes).
     Returns:
-        dict: {
-            'states': lista de estados únicos,
-            'matrix': matriz de transición (NxN),
-            'counts': matriz de conteos de transiciones
-        }
+        dict: states, matrix, counts, meta (estadísticas de filtrado)
     """
-    if not sequence or len(sequence) < 2:
+    if not sequence or len(sequence) < MIN_SEQUENCE_LENGTH:
         raise ValueError("La secuencia debe tener al menos dos observaciones.")
-    
-    # Identificar estados únicos manteniendo orden de aparición
-    seen = set()
-    states = []
-    for item in sequence:
-        if item not in seen:
-            states.append(item)
-            seen.add(item)
-    states.sort()  # Ordena alfabéticamente para consistencia
-    
+
+    original_len = len(sequence)
+    vocab_before = len(set(sequence))
+
+    filtered, top_keywords = filter_sequence_to_top_keywords(sequence, top_n)
+    if len(filtered) < MIN_SEQUENCE_LENGTH:
+        raise ValueError(
+            f"Tras filtrar a las {top_n} palabras clave principales, "
+            "quedan menos de 2 observaciones. Usa un texto más extenso."
+        )
+
+    states = sorted(top_keywords)
     n = len(states)
     state_to_idx = {state: idx for idx, state in enumerate(states)}
-    
-    # Inicializar matriz de conteos con suavizado Laplace (pseudo-conteo de 1)
-    counts = np.ones((n, n))  # Comienza con 1 para evitar probabilidades cero
-    
-    # Contar transiciones
-    for i in range(len(sequence) - 1):
-        curr_state = sequence[i]
-        next_state = sequence[i+1]
+
+    counts = np.ones((n, n))
+
+    for i in range(len(filtered) - 1):
+        curr_state = filtered[i]
+        next_state = filtered[i + 1]
         if curr_state in state_to_idx and next_state in state_to_idx:
             counts[state_to_idx[curr_state], state_to_idx[next_state]] += 1
-        
-    # Convertir a probabilidades
+
     matrix = np.zeros((n, n))
     for i in range(n):
         row_sum = counts[i].sum()
         if row_sum > 0:
             matrix[i] = counts[i] / row_sum
         else:
-            # Si un estado no tiene transiciones, auto-loop con probabilidad 1.0
             matrix[i, i] = 1.0
-            
+
     return {
         'states': states,
         'matrix': matrix.tolist(),
-        'counts': counts.tolist()
+        'counts': counts.tolist(),
+        'meta': {
+            'top_n': top_n,
+            'original_sequence_length': original_len,
+            'filtered_sequence_length': len(filtered),
+            'vocabulary_size_before': vocab_before,
+            'states_count': n,
+            'filtered': vocab_before > n or original_len != len(filtered),
+        },
     }
 
 

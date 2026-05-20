@@ -8,6 +8,9 @@ urlpatterns = [
     path('help/', views.help_view, name='help'),
     path('word-counter/', views.word_counter_view, name='word_counter'),
     path('api/columns/', views.peek_file_columns, name='peek_columns'),
+    path('api/documentos/', views.api_documentos_list, name='api_documentos_list'),
+    path('api/documentos/upload/', views.api_documentos_upload, name='api_documentos_upload'),
+    path('api/documentos/<int:documento_id>/delete/', views.api_documentos_delete, name='api_documentos_delete'),
     path('download/<str:format_type>/', views.download_report, name='download_report'),
 
     # Nuevos Módulos Avanzados
@@ -19,6 +22,7 @@ urlpatterns = [
     path('api/file-stats/', views.api_file_stats, name='api_file_stats'),
     path('api/markov/calculate/', views.api_markov_calculate, name='api_markov_calculate'),
     path('api/markov/estimate/', views.api_markov_estimate, name='api_markov_estimate'),
+    path('api/bayesian/keywords/', views.api_bayesian_keywords, name='api_bayesian_keywords'),
     path('api/bayesian/learn/', views.api_bayesian_learn, name='api_bayesian_learn'),
     path('api/bayesian/infer/', views.api_bayesian_infer, name='api_bayesian_infer'),
     path('api/problem-tree/analyze/', views.api_problem_tree_analyze, name='api_problem_tree_analyze'),

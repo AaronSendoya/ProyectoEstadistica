@@ -212,6 +212,44 @@ def learn_cpts_from_dataframe(df, nodes, edges):
     return cpts
 
 
+def build_structured_network_schema(selected_keywords):
+    """
+    Genera el esquema JSON de red bayesiana por capas (Estado 0, 1, 2).
+    Capa 0: palabras clave seleccionadas del artículo.
+    Capa 1: nodos intermedios A y A_bar.
+    Capa 2: nodos de salida IA y H.
+    """
+    layer0 = list(selected_keywords[:8])
+    nodes = {}
+    edges = []
+
+    for i, kw in enumerate(layer0):
+        nodes[kw] = {
+            'layer': 0,
+            'states': ['Bajo', 'Medio', 'Alto'],
+            'linkedColumn': f'Frec_{kw}',
+        }
+        edges.append([kw, 'A'])
+        edges.append([kw, 'A_bar'])
+
+    nodes['A'] = {'layer': 1, 'states': ['Si', 'No'], 'linkedColumn': ''}
+    nodes['A_bar'] = {'layer': 1, 'states': ['Si', 'No'], 'linkedColumn': ''}
+    nodes['IA'] = {'layer': 2, 'states': ['Bajo', 'Medio', 'Alto'], 'linkedColumn': ''}
+    nodes['H'] = {'layer': 2, 'states': ['Bajo', 'Medio', 'Alto'], 'linkedColumn': ''}
+
+    edges.extend([['A', 'IA'], ['A_bar', 'H']])
+
+    return {
+        'nodes': nodes,
+        'edges': edges,
+        'layers': [
+            {'id': 0, 'label': 'Estado 0', 'description': 'Variables de entrada / palabras clave'},
+            {'id': 1, 'label': 'Estado 1', 'description': 'Transiciones lógicas intermedias'},
+            {'id': 2, 'label': 'Estado 2', 'description': 'Conclusiones e impacto predictivo'},
+        ],
+    }
+
+
 def make_uniform_cpt(node_name, parents, nodes):
     """
     Creates a uniform CPT table as a fallback.

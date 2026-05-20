@@ -1,0 +1,38 @@
+{# Biblioteca SQLite de artículos .txt — accent: purple | cyan | pink #}
+<div class="document-library glass p-5 rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50 mb-6"
+     data-document-library
+     data-accent="{{ accent|default:'cyan' }}">
+    <div class="flex items-center justify-between gap-2 mb-3">
+        <h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+            <span class="w-1.5 h-5 rounded-full {% if accent == 'purple' %}bg-purple-500{% elif accent == 'pink' %}bg-pink-500{% else %}bg-cyan-500{% endif %}"></span>
+            Biblioteca de artículos
+        </h3>
+        <span data-doc-count class="text-[10px] font-semibold text-slate-500">0 artículos</span>
+    </div>
+    <p class="text-[11px] text-slate-500 dark:text-slate-400 mb-3 leading-relaxed">
+        Los <strong>.txt</strong> se guardan en <code class="text-[10px] bg-slate-800/10 px-1 rounded">db.sqlite3</code>.
+        Marca uno o varios para unir su contenido en un solo análisis (corpus unificado).
+    </p>
+
+    <div class="flex flex-wrap gap-2 mb-3">
+        <button type="button" data-doc-upload-btn
+            class="text-[11px] font-bold px-3 py-1.5 rounded-lg text-white transition
+            {% if accent == 'purple' %}bg-purple-600 hover:bg-purple-700{% elif accent == 'pink' %}bg-pink-600 hover:bg-pink-700{% else %}bg-cyan-600 hover:bg-cyan-700{% endif %}">
+            Guardar .txt en biblioteca
+        </button>
+        <input type="file" data-doc-upload-input accept=".txt" multiple class="hidden">
+        <button type="button" data-doc-select-all class="text-[11px] font-semibold px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
+            Seleccionar todos
+        </button>
+        <button type="button" data-doc-clear class="text-[11px] font-semibold px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
+            Limpiar selección
+        </button>
+    </div>
+
+    <div data-doc-empty class="text-center py-6 text-[11px] text-slate-400 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl">
+        No hay artículos guardados.<br>Sube uno o más archivos .txt para comenzar.
+    </div>
+    <div data-doc-list class="space-y-2 max-h-[220px] overflow-y-auto pr-1"></div>
+</div>
+{% load static %}
+<script src="{% static 'analyzer/js/document_library.js' %}"></script>

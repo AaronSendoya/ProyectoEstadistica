@@ -7,39 +7,107 @@ from django.http import HttpResponse, JsonResponse
 from .services.extractor import extract_numbers, get_file_info
 from .services.statistics_engine import analyze_data
 from .services.report_generator import generate_excel_report, generate_pdf_report, generate_plots
-from .models import AnalysisLog
+from .models import AnalysisLog, DocumentoTexto
+
 
 def peek_file_columns(request):
-    if request.method == 'POST':
-        uploaded_files = request.FILES.getlist('files')
-        if not uploaded_files:
-            return JsonResponse({'error': 'No se adjuntaron archivos'}, status=400)
-        try:
-            all_files_info = []
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    try:
+        from .services.document_service import parse_documento_ids_from_request, build_unified_corpus
+        from .services.extractor import build_txt_sheet_preview, get_file_info
+
+        documento_ids = parse_documento_ids_from_request(request)
+        all_files_info = []
+
+        if documento_ids:
+            corpus, meta = build_unified_corpus(documento_ids)
+            titulo = ' + '.join(meta.get('titulos', [])[:3])
+            if meta.get('document_count', 0) > 3:
+                titulo += f" (+{meta['document_count'] - 3} más)"
+            sheet = build_txt_sheet_preview(corpus, sheet_name=titulo or 'Corpus unificado')
+            sheet['documento_ids'] = documento_ids
+            sheet['corpus_meta'] = meta
+            all_files_info.append(sheet)
+        else:
+            uploaded_files = request.FILES.getlist('files')
+            if not uploaded_files:
+                return JsonResponse({'error': 'No se adjuntaron archivos ni documentos seleccionados'}, status=400)
             for f in uploaded_files:
                 file_info_list = get_file_info(f)
-                # Para archivos .txt con txt_info=True, agregar 'Contenido' a la vista previa
                 for sheet_info in file_info_list:
                     if sheet_info.get('txt_info'):
-                        # Ensure 'Contenido' column is included in the preview
                         sheet_info['has_content_column'] = True
                 all_files_info.extend(file_info_list)
 
-            # Merge per-sheet profiles into one global data_profile
-            profiles = [s.get('profile', {}) for s in all_files_info if s.get('profile')]
-            merged_profile = {
-                'total_rows': sum(p.get('n', 0) for p in profiles),
-                'min_n': min((p.get('n', 0) for p in profiles), default=0),
-                'has_negative': any(p.get('has_negative', False) for p in profiles),
-                'has_zero': any(p.get('has_zero', False) for p in profiles),
-                'unique_ratio': (sum(p.get('unique_ratio', 0) for p in profiles) / len(profiles)) if profiles else 0,
-                'has_numeric': any(p.get('has_numeric', False) for p in profiles),
-            }
+        profiles = [s.get('profile', {}) for s in all_files_info if s.get('profile')]
+        merged_profile = {
+            'total_rows': sum(p.get('n', 0) for p in profiles),
+            'min_n': min((p.get('n', 0) for p in profiles), default=0),
+            'has_negative': any(p.get('has_negative', False) for p in profiles),
+            'has_zero': any(p.get('has_zero', False) for p in profiles),
+            'unique_ratio': (sum(p.get('unique_ratio', 0) for p in profiles) / len(profiles)) if profiles else 0,
+            'has_numeric': any(p.get('has_numeric', False) for p in profiles),
+        }
 
-            return JsonResponse({'sheets': all_files_info, 'data_profile': merged_profile})
-        except Exception as e:
-            return JsonResponse({'error': str(e)}, status=500)
-    return JsonResponse({'error': 'Método no permitido'}, status=405)
+        return JsonResponse({'sheets': all_files_info, 'data_profile': merged_profile})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# ── BIBLIOTECA DE DOCUMENTOS (.txt en SQLite) ───────────────────────────────────
+
+def api_documentos_list(request):
+    """Lista todos los artículos guardados en la base de datos."""
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    from .services.document_service import list_documentos
+    return JsonResponse({'documents': list_documentos(), 'count': DocumentoTexto.objects.count()})
+
+
+def api_documentos_upload(request):
+    """Sube uno o varios .txt y los persiste en DocumentoTexto."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    try:
+        from .services.document_service import save_documentos_from_uploads, list_documentos
+        uploaded_files = request.FILES.getlist('files')
+        if not uploaded_files:
+            return JsonResponse({'error': 'No se adjuntaron archivos .txt'}, status=400)
+        non_txt = [f.name for f in uploaded_files if not f.name.lower().endswith('.txt')]
+        if non_txt:
+            return JsonResponse({
+                'error': f'Solo archivos .txt en la biblioteca. Rechazados: {", ".join(non_txt)}',
+            }, status=400)
+        saved = save_documentos_from_uploads(uploaded_files)
+        return JsonResponse({
+            'success': True,
+            'saved': saved,
+            'documents': list_documentos(),
+            'message': f'{len(saved)} documento(s) guardado(s) en la base de datos.',
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def api_documentos_delete(request, documento_id):
+    """Elimina un documento de la biblioteca."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    try:
+        doc = DocumentoTexto.objects.filter(pk=documento_id).first()
+        if not doc:
+            return JsonResponse({'error': 'Documento no encontrado'}, status=404)
+        titulo = doc.titulo
+        doc.delete()
+        from .services.document_service import list_documentos
+        return JsonResponse({
+            'success': True,
+            'message': f'Documento "{titulo}" eliminado.',
+            'documents': list_documentos(),
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 def home_view(request):
     """Vista de inicio con dashboard resumen."""
@@ -246,10 +314,12 @@ def word_counter_view(request):
             clean_words = [w for w in clean_words if w]
             unique_words = set(clean_words)
 
-            # Frecuencia de palabras
             from collections import Counter
+            from .services.text_tokenizer import count_semantic_words
             word_freq = Counter(clean_words)
+            semantic_freq = count_semantic_words(text)
             most_common = word_freq.most_common(20)
+            keywords_semantic = semantic_freq.most_common(20)
 
             # Estadísticas adicionales
             char_count = len(text)
@@ -269,6 +339,7 @@ def word_counter_view(request):
                 'paragraph_count': paragraph_count,
                 'avg_word_length': round(avg_word_length, 2),
                 'most_common': most_common,
+                'keywords_semantic': keywords_semantic,
                 'text_preview': text[:500] + '...' if len(text) > 500 else text
             }
 
@@ -339,21 +410,27 @@ def api_markov_calculate(request):
         if not states or not matrix or not initial_dist:
             return JsonResponse({'error': 'Faltan parámetros requeridos (estados, matriz o vector inicial).'}, status=400)
 
-        from .services.markov_engine import predict_steps, calculate_steady_state, simulate_monte_carlo
+        from .services.markov_engine import (
+            predict_steps,
+            calculate_steady_state,
+            simulate_monte_carlo,
+            build_top_transitions_list,
+            TOP_N_KEYWORDS,
+        )
 
-        # 1. Proyecciones paso a paso (Convergencia)
+        if len(states) > TOP_N_KEYWORDS:
+            return JsonResponse({
+                'error': f'Máximo {TOP_N_KEYWORDS} estados permitidos en el modelo manual.',
+            }, status=400)
+
         projections = []
         for s in range(steps + 1):
             proj = predict_steps(matrix, initial_dist, s)
             projections.append(proj)
 
-        # 2. Estado Estacionario
         steady_state = calculate_steady_state(matrix)
-
-        # 3. Simulación Monte Carlo (Caminata Aleatoria de 200 pasos)
         simulated_path = simulate_monte_carlo(matrix, states, states[0], 200)
 
-        # Guardar en sesión para exportaciones PDF
         request.session['last_markov_states'] = states
         request.session['last_markov_matrix'] = matrix
         request.session['last_markov_steps'] = steps
@@ -361,41 +438,67 @@ def api_markov_calculate(request):
         request.session['last_markov_steady_state'] = steady_state
         request.session['last_markov_simulated_path'] = simulated_path
 
+        top_transitions = build_top_transitions_list(states, matrix, limit=10)
+
         return JsonResponse({
             'projections': projections,
             'steady_state': steady_state,
-            'simulated_path': simulated_path
+            'simulated_path': simulated_path[:50],
+            'transitions': top_transitions,
+            'states': states,
+            'matrix': matrix,
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
 
 def api_markov_estimate(request):
-    """Estima la matriz de transición desde un archivo de datos Excel, Word o texto plano.
-    Para .txt, extrae la secuencia lineal de palabras clave sin necesidad de columna específica."""
+    """Estima matriz de transición desde documentos guardados, .txt o Excel/Word."""
     if request.method != 'POST':
         return JsonResponse({'error': 'Método no permitido'}, status=405)
     try:
-        uploaded_file = request.FILES.get('file')
-        target_column = request.POST.get('column')  # Opcional para .txt
+        target_column = request.POST.get('column')
         steps = int(request.POST.get('steps', 10))
 
-        if not uploaded_file:
-            return JsonResponse({'error': 'Se requiere un archivo.'}, status=400)
+        from .services.document_service import (
+            corpus_from_request_or_file,
+            parse_documento_ids_from_request,
+        )
+        from .services.extractor import extract_categorical_column, extract_keyword_sequence_from_text
+        from .services.markov_engine import (
+            estimate_transition_matrix,
+            predict_steps,
+            calculate_steady_state,
+            simulate_monte_carlo,
+            build_top_transitions_list,
+            TOP_N_KEYWORDS,
+        )
 
-        from .services.extractor import extract_categorical_column
-        from .services.markov_engine import estimate_transition_matrix, predict_steps, calculate_steady_state, simulate_monte_carlo
+        documento_ids = parse_documento_ids_from_request(request)
+        uploaded_file = request.FILES.get('file')
 
-        # 1. Extraer secuencia categórica (target_column es ignorado para .txt)
-        sequence = extract_categorical_column(uploaded_file, target_column)
+        if documento_ids:
+            text_corpus, corpus_meta = corpus_from_request_or_file(request)
+            sequence = extract_keyword_sequence_from_text(text_corpus)
+            source_meta = corpus_meta
+        elif uploaded_file and uploaded_file.name.lower().endswith('.txt'):
+            uploaded_file.seek(0)
+            text_corpus = uploaded_file.read().decode('utf-8', errors='ignore')
+            sequence = extract_keyword_sequence_from_text(text_corpus)
+            source_meta = {'source': 'upload', 'titulos': [uploaded_file.name]}
+        elif uploaded_file:
+            sequence = extract_categorical_column(uploaded_file, target_column)
+            source_meta = {'source': 'file', 'titulos': [uploaded_file.name]}
+        else:
+            return JsonResponse({'error': 'Seleccione artículos guardados o suba un archivo.'}, status=400)
 
         if not sequence or len(sequence) < 2:
             return JsonResponse({'error': 'La secuencia debe tener al menos dos elementos para estimar transiciones.'}, status=400)
 
-        # 2. Estimar matriz de transición
-        estimation = estimate_transition_matrix(sequence)
+        estimation = estimate_transition_matrix(sequence, top_n=TOP_N_KEYWORDS)
         states = estimation['states']
         matrix = estimation['matrix']
+        filter_meta = {**estimation.get('meta', {}), **source_meta}
 
         # 3. Vector inicial uniforme
         n = len(states)
@@ -421,13 +524,19 @@ def api_markov_estimate(request):
         request.session['last_markov_steady_state'] = steady_state
         request.session['last_markov_simulated_path'] = simulated_path
 
+        top_transitions = build_top_transitions_list(states, matrix, limit=10)
+        top_transitions_full = build_top_transitions_list(states, matrix, limit=50)
+
         return JsonResponse({
             'states': states,
             'matrix': matrix,
             'projections': projections,
             'steady_state': steady_state,
-            'simulated_path': simulated_path,
-            'sequence_preview': sequence[:20]
+            'simulated_path': simulated_path[:50],
+            'sequence_preview': sequence[:20],
+            'transitions': top_transitions,
+            'transitions_graph': top_transitions_full,
+            'meta': filter_meta,
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
@@ -468,6 +577,28 @@ def api_file_stats(request):
 
 # ── RED BAYESIANA API ────────────────────────────────────────────────────────────
 
+def api_bayesian_keywords(request):
+    """Palabras clave desde documentos guardados o .txt para la Red Bayesiana."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+    try:
+        from .services.document_service import corpus_from_request_or_file
+        from .services.extractor import extract_top_keywords
+        from .services.bayesian_engine import build_structured_network_schema
+
+        text_content, meta = corpus_from_request_or_file(request, require_txt=True)
+        keywords = extract_top_keywords(text_content)
+        schema = build_structured_network_schema(keywords[:4])
+
+        return JsonResponse({
+            'keywords': keywords,
+            'schema': schema,
+            'corpus_meta': meta,
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
 def api_bayesian_learn(request):
     """Aprende las tablas de probabilidad condicional (CPT) desde un archivo de datos Excel, Word o texto plano."""
     if request.method != 'POST':
@@ -476,39 +607,43 @@ def api_bayesian_learn(request):
         uploaded_file = request.FILES.get('file')
         nodes_json = request.POST.get('nodes')
         edges_json = request.POST.get('edges')
+        selected_keywords_json = request.POST.get('selected_keywords', '[]')
 
-        if not uploaded_file or not nodes_json or not edges_json:
-            return JsonResponse({'error': 'Se requiere un archivo, esquema de nodos y aristas.'}, status=400)
+        if not nodes_json or not edges_json:
+            return JsonResponse({'error': 'Se requiere esquema de nodos y aristas.'}, status=400)
 
         nodes = json.loads(nodes_json)
         edges = json.loads(edges_json)
+        selected_keywords = json.loads(selected_keywords_json)
 
-        # Leer archivo con Pandas
         import pandas as pd
-        filename = uploaded_file.name.lower()
-        
-        if filename.endswith('.txt'):
-            # Para archivos .txt, usar las métricas de párrafo
-            from .services.extractor import extract_text_metrics
-            uploaded_file.seek(0)
-            text_content = uploaded_file.read().decode('utf-8', errors='ignore')
-            df = extract_text_metrics(text_content)
-            
-            # Discretizar métricas continuas en categorías
-            df['Total_Palabras_Cat'] = pd.cut(df['Total_Palabras'], bins=3, labels=['Bajo', 'Medio', 'Alto']).astype(str)
-            df['Densidad_Léxica_Cat'] = pd.cut(df['Densidad_Léxica'], bins=3, labels=['Baja', 'Media', 'Alta']).astype(str)
-            df['Total_Oraciones_Cat'] = pd.cut(df['Total_Oraciones'], bins=3, labels=['Pocas', 'Moderadas', 'Muchas']).astype(str)
-            
-            # Renombrar columnas para que coincidan con los nombres de nodos si es necesario
-            df = df.rename(columns={
-                'Total_Palabras_Cat': 'Densidad_Contenido',
-                'Densidad_Léxica_Cat': 'Complejidad_Léxica',
-                'Total_Oraciones_Cat': 'Estructura_Oracional'
-            })
-            
-        elif filename.endswith(('.xls', '.xlsx')):
+        from .services.document_service import (
+            corpus_from_request_or_file,
+            parse_documento_ids_from_request,
+        )
+
+        documento_ids = parse_documento_ids_from_request(request)
+        used_txt_corpus = False
+
+        if documento_ids or (uploaded_file and uploaded_file.name.lower().endswith('.txt')):
+            from .services.extractor import prepare_bayesian_txt_dataframe, extract_text_metrics
+            text_content, _ = corpus_from_request_or_file(request, require_txt=True)
+            used_txt_corpus = True
+            if selected_keywords:
+                df = prepare_bayesian_txt_dataframe(text_content, selected_keywords)
+            else:
+                df = extract_text_metrics(text_content)
+                df['Total_Palabras_Cat'] = pd.cut(df['Total_Palabras'], bins=3, labels=['Bajo', 'Medio', 'Alto']).astype(str)
+                df['Densidad_Léxica_Cat'] = pd.cut(df['Densidad_Léxica'], bins=3, labels=['Baja', 'Media', 'Alta']).astype(str)
+                df['Total_Oraciones_Cat'] = pd.cut(df['Total_Oraciones'], bins=3, labels=['Pocas', 'Moderadas', 'Muchas']).astype(str)
+                df = df.rename(columns={
+                    'Total_Palabras_Cat': 'Densidad_Contenido',
+                    'Densidad_Léxica_Cat': 'Complejidad_Léxica',
+                    'Total_Oraciones_Cat': 'Estructura_Oracional',
+                })
+        elif uploaded_file and uploaded_file.name.lower().endswith(('.xls', '.xlsx')):
             df = pd.read_excel(uploaded_file)
-        elif filename.endswith(('.doc', '.docx')):
+        elif uploaded_file and uploaded_file.name.lower().endswith(('.doc', '.docx')):
             from .services.extractor import extract_docx_dataframes
             dfs = extract_docx_dataframes(uploaded_file)
             if not dfs:
@@ -516,7 +651,9 @@ def api_bayesian_learn(request):
             first_key = list(dfs.keys())[0]
             df = dfs[first_key]
         else:
-            return JsonResponse({'error': 'Formato de archivo no soportado. Suba un Excel, Word o TXT.'}, status=400)
+            return JsonResponse({
+                'error': 'Seleccione artículos guardados, suba .txt o use Excel/Word.',
+            }, status=400)
 
         from .services.bayesian_engine import learn_cpts_from_dataframe
         cpts = learn_cpts_from_dataframe(df, nodes, edges)
@@ -532,7 +669,12 @@ def api_bayesian_learn(request):
                 'table': str_table
             }
 
-        return JsonResponse({'cpts': cpts_serializable})
+        response_data = {'cpts': cpts_serializable}
+        if used_txt_corpus and selected_keywords:
+            from .services.bayesian_engine import build_structured_network_schema
+            response_data['schema'] = build_structured_network_schema(selected_keywords)
+
+        return JsonResponse(response_data)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
@@ -581,25 +723,18 @@ def api_problem_tree_analyze(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'Método no permitido'}, status=405)
     try:
-        uploaded_file = request.FILES.get('file')
-        if not uploaded_file:
-            return JsonResponse({'error': 'Se requiere un archivo .txt'}, status=400)
-
-        # Extraer el contenido del archivo
-        uploaded_file.seek(0)
-        text_content = uploaded_file.read().decode('utf-8', errors='ignore')
-        
+        from .services.document_service import corpus_from_request_or_file
         from .services.problem_tree_engine import analyze_text_for_problem_tree
-        
-        # Analizar el texto con el motor de Árbol de Problemas
+
+        text_content, corpus_meta = corpus_from_request_or_file(request, require_txt=True)
         tree_structure = analyze_text_for_problem_tree(text_content)
-        
-        # Guardar en sesión
+
         request.session['last_problem_tree'] = tree_structure
-        
+
         return JsonResponse({
             'success': True,
-            'tree': tree_structure
+            'tree': tree_structure,
+            'corpus_meta': corpus_meta,
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)

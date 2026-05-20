@@ -98,56 +98,110 @@ def extract_docx_dataframes(uploaded_file):
 
 def extract_text_metrics(text_content):
     """
-    Analiza texto plano, guarda el texto real de cada párrafo y devuelve un DataFrame 
-    con métricas lingüísticas por párrafo para mapeo de variables en el frontend.
+    Analiza texto plano por párrafo. Las palabras clave (Frec_*) usan filtro semántico:
+    longitud ≥ 6 y lista ampliada de stop words en español.
     """
     from collections import Counter
     import re
     import pandas as pd
 
-    STOP_WORDS = {
-        'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'de', 'del', 'al',
-        'en', 'y', 'o', 'a', 'que', 'es', 'se', 'no', 'con', 'por', 'para',
-        'su', 'sus', 'lo', 'como', 'más', 'pero', 'le', 'ya', 'este', 'esta',
-        'han', 'ha', 'he', 'si', 'me', 'mi', 'tu', 'te', 'nos', 'son', 'fue',
-        'ser', 'también', 'todo', 'todos', 'cada', 'sobre', 'entre', 'cuando',
-        'muy', 'sin', 'hasta', 'desde', 'durante', 'después', 'antes', 'aunque',
-        'mientras', 'mediante', 'hacia', 'través', 'embargo', 'bien', 'tan',
-        'vez', 'veces', 'porque', 'sino', 'donde', 'quien', 'cual', 'esto',
-        'ello', 'sido', 'estar', 'tiene', 'tienen', 'puede', 'pueden', 'parte',
-        'hace', 'hacer', 'así', 'mismo', 'solo', 'ellos', 'ellas', 'nosotros',
-        'ante', 'bajo', 'cabe', 'contra', 'tras', 'versus', 'via', 'pro',
-    }
+    from .text_tokenizer import count_semantic_words, top_semantic_keywords, tokenize_semantic_words
 
     paragraphs = [p.strip() for p in text_content.split('\n') if p.strip()]
     if not paragraphs:
         raise ValueError("El archivo de texto está vacío o no tiene contenido legible.")
 
     all_text = ' '.join(paragraphs)
-    all_words = re.findall(r'\b[a-záéíóúüñ]{4,}\b', all_text.lower())
-    filtered = [w for w in all_words if w not in STOP_WORDS]
-    top_keywords = [word for word, _ in Counter(filtered).most_common(8)]
+    top_keywords = top_semantic_keywords(all_text, limit=8)
 
     rows = []
     for i, para in enumerate(paragraphs):
         words = re.findall(r'\b\w+\b', para.lower())
         sentences = [s.strip() for s in re.split(r'[.!?]+', para) if s.strip()]
         unique = set(words)
-        para_kw_counts = Counter(re.findall(r'\b[a-záéíóúüñ]{4,}\b', para.lower()))
+        para_semantic = count_semantic_words(para)
 
         row = {
             'Párrafo':         i + 1,
-            'Contenido':       para,  # <--- Enviamos el texto real del párrafo
+            'Contenido':       para,
             'Total_Palabras':  len(words),
             'Total_Oraciones': len(sentences),
             'Palabras_Únicas': len(unique),
             'Densidad_Léxica': round(len(unique) / len(words), 3) if words else 0,
         }
         for kw in top_keywords:
-            row[f'Frec_{kw}'] = para_kw_counts.get(kw, 0)
+            row[f'Frec_{kw}'] = para_semantic.get(kw, 0)
         rows.append(row)
 
     return pd.DataFrame(rows)
+
+
+def extract_top_keywords(text_content, limit=12):
+    """Palabras clave más frecuentes con filtro semántico estricto."""
+    from .text_tokenizer import top_semantic_keywords
+    return top_semantic_keywords(text_content, limit=limit)
+
+
+def extract_keyword_sequence_from_text(text_content):
+    """Secuencia lineal de palabras clave para Cadenas de Markov."""
+    from .text_tokenizer import tokenize_semantic_words
+    values = tokenize_semantic_words(text_content)
+    if not values:
+        raise ValueError(
+            'El texto no produjo palabras clave válidas (mínimo 6 letras, sin conectores).'
+        )
+    return values
+
+
+def prepare_bayesian_txt_dataframe(text_content, selected_keywords):
+    """
+    Construye un DataFrame categórico para aprendizaje CPT desde un artículo .txt.
+    Capa 0: columnas = palabras clave seleccionadas (discretización de Frec_<kw>).
+    Capa 1-2: nodos estructurados A, A_bar, IA, H derivados de métricas del párrafo.
+    """
+    import pandas as pd
+
+    df = extract_text_metrics(text_content)
+    result = pd.DataFrame()
+
+    for kw in selected_keywords:
+        col = f'Frec_{kw}'
+        if col in df.columns:
+            result[kw] = pd.cut(
+                df[col].astype(float),
+                bins=[-0.5, 0.5, 2.5, float('inf')],
+                labels=['Bajo', 'Medio', 'Alto']
+            ).astype(str)
+        else:
+            result[kw] = 'Bajo'
+
+    if 'Densidad_Léxica' in df.columns:
+        result['A'] = pd.cut(
+            df['Densidad_Léxica'].astype(float),
+            bins=2, labels=['No', 'Si']
+        ).astype(str)
+        result['A_bar'] = result['A'].map({'Si': 'No', 'No': 'Si'})
+    else:
+        result['A'] = 'No'
+        result['A_bar'] = 'Si'
+
+    if 'Total_Palabras' in df.columns:
+        result['IA'] = pd.cut(
+            df['Total_Palabras'].astype(float),
+            bins=3, labels=['Bajo', 'Medio', 'Alto']
+        ).astype(str)
+    else:
+        result['IA'] = 'Medio'
+
+    if 'Total_Oraciones' in df.columns:
+        result['H'] = pd.cut(
+            df['Total_Oraciones'].astype(float),
+            bins=3, labels=['Bajo', 'Medio', 'Alto']
+        ).astype(str)
+    else:
+        result['H'] = 'Medio'
+
+    return result
 
 
 def get_file_info(uploaded_file):
@@ -188,12 +242,14 @@ def get_file_info(uploaded_file):
             df = extract_text_metrics(text_content)
             df_clean = df.replace({pd.NA: None, np.nan: None})
             profile = compute_data_profile(df_clean)
+            top_kw = extract_top_keywords(text_content)
             result_list.append({
                 'name': filename,
                 'columns': [str(col) for col in df.columns],
                 'preview': df_clean.to_dict('records'),
                 'profile': profile,
-                'txt_info': True  # Marca para el frontend
+                'txt_info': True,
+                'top_keywords': top_kw,
             })
         else:
             result_list.append({
@@ -332,19 +388,27 @@ def extract_categorical_column(uploaded_file, target_column):
         elif filename.endswith('.txt'):
             uploaded_file.seek(0)
             text_content = uploaded_file.read().decode('utf-8', errors='ignore')
-            
-            import re
-            STOP_WORDS = {'el', 'la', 'los', 'las', 'de', 'del', 'en', 'que', 'y', 'a', 'un', 'una', 'es', 'se', 'para', 'por', 'su'}
-            # Extrae todas las palabras significativas correlativas del ensayo
-            all_words = re.findall(r'\b[a-záéíóúüñ]{4,}\b', text_content.lower())
-            values = [w for w in all_words if w not in STOP_WORDS]
-            
-            if not values:
-                raise ValueError("El archivo .txt no produjo palabras clave válidas para la secuencia.")
-            return values
+            return extract_keyword_sequence_from_text(text_content)
             
         else:
             raise ValueError("Formato no compatible.")
     except Exception as e:
         raise ValueError(f"Error al extraer datos categóricos: {str(e)}")
+
+
+def build_txt_sheet_preview(text_content, sheet_name='Corpus de texto'):
+    """Genera estructura de vista previa (como get_file_info) desde texto en memoria."""
+    import numpy as np
+    df = extract_text_metrics(text_content)
+    df_clean = df.replace({pd.NA: None, np.nan: None})
+    from .text_tokenizer import top_semantic_keywords
+    return {
+        'name': sheet_name,
+        'columns': [str(col) for col in df.columns],
+        'preview': df_clean.to_dict('records'),
+        'profile': compute_data_profile(df_clean),
+        'txt_info': True,
+        'top_keywords': top_semantic_keywords(text_content, limit=12),
+        'has_content_column': True,
+    }
 

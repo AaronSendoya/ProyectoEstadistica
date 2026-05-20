@@ -1,0 +1,145 @@
+{# Guía contextual: {% include "analyzer/components/module_guide.html" with module="markov" %} #}
+{% if module == "problem_tree" %}
+<details class="module-guide group mb-6 rounded-2xl border border-purple-500/25 bg-purple-500/5 dark:bg-purple-950/30 overflow-hidden shadow-sm" open>
+{% elif module == "bayesian" %}
+<details class="module-guide group mb-6 rounded-2xl border border-cyan-500/25 bg-cyan-500/5 dark:bg-cyan-950/30 overflow-hidden shadow-sm" open>
+{% else %}
+<details class="module-guide group mb-6 rounded-2xl border border-pink-500/25 bg-pink-500/5 dark:bg-pink-950/30 overflow-hidden shadow-sm" open>
+{% endif %}
+    <summary class="module-guide-summary cursor-pointer list-none flex items-center justify-between gap-3 px-5 py-4 hover:bg-white/5 transition-colors">
+        <div class="flex items-center gap-3 min-w-0">
+            {% if module == "problem_tree" %}
+            <span class="flex-shrink-0 w-9 h-9 rounded-xl bg-purple-500/20 text-purple-500 dark:text-purple-400 flex items-center justify-center">
+            {% elif module == "bayesian" %}
+            <span class="flex-shrink-0 w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-500 dark:text-cyan-400 flex items-center justify-center">
+            {% else %}
+            <span class="flex-shrink-0 w-9 h-9 rounded-xl bg-pink-500/20 text-pink-500 dark:text-pink-400 flex items-center justify-center">
+            {% endif %}
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </span>
+            <div class="min-w-0">
+                <p class="text-sm font-bold text-slate-800 dark:text-slate-100">Guía de uso y cálculo de variables</p>
+                <p class="text-[11px] text-slate-500 dark:text-slate-400">Cómo interpreta el sistema tu archivo y de dónde salen los resultados</p>
+            </div>
+        </div>
+        <span class="module-guide-chevron text-[11px] font-bold uppercase tracking-wider text-slate-400"></span>
+    </summary>
+
+    <div class="px-5 pb-5 pt-2 text-[12px] leading-relaxed text-slate-600 dark:text-slate-300 space-y-4 border-t border-white/10">
+
+        {% if module == "problem_tree" %}
+        <p class="text-slate-700 dark:text-slate-200">
+            El <strong>Árbol de Problemas</strong> organiza tu artículo en tres niveles: <em>efectos</em> (arriba),
+            <em>problema central</em> (centro) y <em>causas</em> (abajo). Las tarjetas salen del análisis lingüístico de cada párrafo.
+        </p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="rounded-xl p-3 bg-pink-500/10 border border-pink-500/20">
+                <p class="font-bold text-pink-600 dark:text-pink-400 text-[11px] uppercase mb-1">↑ Efectos</p>
+                <p class="text-[11px]">Párrafos con conectores de consecuencia: <em>por lo tanto, impacto, resultado, generó, ocasionó</em>…</p>
+            </div>
+            <div class="rounded-xl p-3 bg-violet-500/10 border border-violet-500/20">
+                <p class="font-bold text-violet-600 dark:text-violet-400 text-[11px] uppercase mb-1">◆ Problema central</p>
+                <p class="text-[11px]">Palabras clave: <em>problema, crisis, limitación</em>; si no hay, se toma el primer párrafo.</p>
+            </div>
+            <div class="rounded-xl p-3 bg-indigo-500/10 border border-indigo-500/20">
+                <p class="font-bold text-indigo-600 dark:text-indigo-400 text-[11px] uppercase mb-1">↓ Causas</p>
+                <p class="text-[11px]">Conectores causales: <em>porque, debido a, origen, raíz, motivo</em>…</p>
+            </div>
+        </div>
+        <div class="rounded-xl p-3 bg-slate-800/20 border border-slate-600/20 space-y-2">
+            <p class="font-bold text-slate-700 dark:text-slate-200 text-[11px]">Métricas en archivos .txt (por párrafo)</p>
+            <ul class="list-disc list-inside space-y-0.5 text-[11px]">
+                <li><strong>Total_Palabras</strong> — recuento de palabras.</li>
+                <li><strong>Densidad_Léxica</strong> = palabras únicas ÷ total (0 a 1).</li>
+                <li><strong>Frec_palabra</strong> — solo palabras ≥6 letras y fuera de stop words en español.</li>
+            </ul>
+        </div>
+        <div class="rounded-xl p-3 bg-purple-500/10 border border-purple-500/20 text-[11px]">
+            <p class="font-bold text-purple-600 dark:text-purple-400 mb-1">Biblioteca multi-documento</p>
+            <p>Guarda varios <strong>.txt</strong> en <code class="text-[10px] bg-black/20 px-1 rounded">db.sqlite3</code>, marca uno o más y pulsa <strong>Analizar corpus</strong>. El backend une los textos con separadores y analiza el corpus unificado.</p>
+        </div>
+        <div class="flex flex-wrap gap-2 text-[10px]">
+            <span class="px-2 py-1 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-300 font-bold">1. Biblioteca / .txt</span>
+            <span class="px-2 py-1 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-300 font-bold">2. Analizar corpus</span>
+            <span class="px-2 py-1 rounded-full bg-purple-500/15 text-purple-600 dark:text-purple-300 font-bold">3. Edita y exporta PDF</span>
+        </div>
+
+        {% elif module == "bayesian" %}
+        <p class="text-slate-700 dark:text-slate-200">
+            La red se estructura en <strong>Estado 0</strong> (palabras que eliges), <strong>Estado 1</strong> (A, Ā) y <strong>Estado 2</strong> (IA, H).
+            Las probabilidades se calculan contando coincidencias en los párrafos de tu texto.
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
+            <div class="rounded-xl p-3 bg-cyan-500/10 border border-cyan-500/20">
+                <p class="font-bold text-cyan-600 dark:text-cyan-400 uppercase mb-1">Estado 0</p>
+                <p>Cada palabra clave → estados <strong>Bajo / Medio / Alto</strong> según <code class="text-[10px] bg-black/20 px-1 rounded">Frec_palabra</code>.</p>
+            </div>
+            <div class="rounded-xl p-3 bg-teal-500/10 border border-teal-500/20">
+                <p class="font-bold text-teal-600 dark:text-teal-400 uppercase mb-1">Estado 1</p>
+                <p><strong>A</strong> y <strong>Ā</strong> desde la densidad léxica del párrafo (Sí / No).</p>
+            </div>
+            <div class="rounded-xl p-3 bg-indigo-500/10 border border-indigo-500/20">
+                <p class="font-bold text-indigo-600 dark:text-indigo-400 uppercase mb-1">Estado 2</p>
+                <p><strong>IA</strong> = extensión (palabras). <strong>H</strong> = estructura (oraciones).</p>
+            </div>
+        </div>
+        <div class="rounded-xl p-3 bg-slate-800/20 border border-slate-600/20">
+            <p class="font-bold text-[11px] mb-1">CPT e inferencia</p>
+            <p class="text-[11px] font-mono bg-black/25 rounded-lg px-3 py-2 mb-1">P(Nodo | Padres) = filas que coinciden ÷ filas con esos padres</p>
+            <p class="text-[11px] text-slate-500">Clic en un estado del lienzo = evidencia. El botón de inferencia actualiza el resto de probabilidades.</p>
+        </div>
+        <div class="rounded-xl p-3 bg-cyan-500/10 border border-cyan-500/20 text-[11px]">
+            <p class="font-bold text-cyan-600 dark:text-cyan-400 mb-1">Biblioteca multi-documento</p>
+            <p>Selecciona artículos guardados: se cargan chips de palabras clave y vista previa del <strong>corpus unificado</strong> antes de aprender CPTs o inferir.</p>
+        </div>
+        <div class="flex flex-wrap gap-2 text-[10px]">
+            <span class="px-2 py-1 rounded-full bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 font-bold">1. Biblioteca / chips</span>
+            <span class="px-2 py-1 rounded-full bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 font-bold">2. Construir red</span>
+            <span class="px-2 py-1 rounded-full bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 font-bold">3. Aprender CPTs</span>
+            <span class="px-2 py-1 rounded-full bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 font-bold">4. Inferencia</span>
+        </div>
+
+        {% else %}
+        <p class="text-slate-700 dark:text-slate-200">
+            El modelo estima <strong>probabilidades de transición entre palabras clave</strong>. Solo las <strong>20 más frecuentes</strong>
+            del texto son estados (evita matrices gigantes y el colapso del navegador).
+        </p>
+        <div class="rounded-xl p-3 bg-pink-500/10 border border-pink-500/20 space-y-2">
+            <p class="font-bold text-pink-600 dark:text-pink-400 text-[11px]">Fórmulas aplicadas</p>
+            <ul class="list-disc list-inside space-y-0.5 text-[11px]">
+                <li><strong>Secuencia</strong> — palabras ≥6 letras, sin stop words ampliadas en español (filtro semántico estricto).</li>
+                <li><strong>P(i→j)</strong> = transiciones i→j ÷ salidas desde i (con suavizado +1 por celda).</li>
+                <li><strong>π estacionario</strong> — vector donde π·P = π (equilibrio a largo plazo).</li>
+                <li><strong>Grafo</strong> — solo flechas con P ≥ 5%; etiquetas en las más relevantes.</li>
+            </ul>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+            <div class="rounded-xl p-3 bg-slate-800/20 border border-slate-600/20">
+                <p class="font-bold mb-1">Archivo .txt</p>
+                <p>Usa la opción <em>secuencia automática</em>. No hace falta columna “Párrafo”.</p>
+            </div>
+            <div class="rounded-xl p-3 bg-slate-800/20 border border-slate-600/20">
+                <p class="font-bold mb-1">Resultados</p>
+                <p>Top 10 transiciones, matriz con scroll, gráfico de convergencia y simulación Monte Carlo.</p>
+            </div>
+        </div>
+        <div class="rounded-xl p-3 bg-pink-500/10 border border-pink-500/20 text-[11px]">
+            <p class="font-bold text-pink-600 dark:text-pink-400 mb-1">Biblioteca multi-documento</p>
+            <p>Marca varios artículos en la biblioteca: el motor concatena sus textos y estima la cadena de Markov sobre el corpus completo.</p>
+        </div>
+        <div class="flex flex-wrap gap-2 text-[10px]">
+            <span class="px-2 py-1 rounded-full bg-pink-500/15 text-pink-600 dark:text-pink-300 font-bold">1. Biblioteca / .txt</span>
+            <span class="px-2 py-1 rounded-full bg-pink-500/15 text-pink-600 dark:text-pink-300 font-bold">2. Calcular</span>
+            <span class="px-2 py-1 rounded-full bg-pink-500/15 text-pink-600 dark:text-pink-300 font-bold">3. Leer grafo y equilibrio</span>
+        </div>
+        {% endif %}
+    </div>
+</details>
+
+<style>
+    .module-guide summary::-webkit-details-marker { display: none; }
+    .module-guide[open] .module-guide-chevron::before { content: "Ocultar"; }
+    .module-guide:not([open]) .module-guide-chevron::before { content: "Ver guía"; }
+</style>

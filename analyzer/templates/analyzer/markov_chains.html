@@ -15,6 +15,9 @@
     <p id="errorMessage" class="text-sm">Ha ocurrido un error al calcular los datos.</p>
 </div>
 
+{% include "analyzer/components/module_guide.html" with module="markov" %}
+{% include "analyzer/components/document_library.html" with accent="pink" %}
+
 <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 animate-fade-in-up">
     <!-- Configuration Panel (Left side) -->
     <div class="xl:col-span-1 space-y-6">
@@ -30,7 +33,7 @@
                     Matriz Manual
                 </button>
                 <button id="tabFile" class="flex-1 py-2 px-3 rounded-lg text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-all">
-                    Estimar de Excel / Word
+                    Desde archivo (.txt)
                 </button>
             </div>
 
@@ -94,26 +97,17 @@
                     </button>
                 </div>
 
-                <!-- Selector de Columna (Muestra al subir archivo) -->
+                <!-- Selector de Columna (Excel/Word; .txt usa secuencia automática) -->
                 <div id="columnSelection" class="hidden space-y-2">
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Selecciona la Columna de Estados</label>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Origen de la secuencia</label>
                     <select id="colSelect" class="w-full form-select bg-white/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-600 focus:border-pink-500 focus:ring-pink-500 text-slate-700 dark:text-slate-300 rounded-lg text-sm px-3 py-2 transition-shadow">
-                        <!-- Options filled via JS -->
                     </select>
-                    <p class="text-[10px] text-slate-400">El motor contará las transiciones sucesivas en esta secuencia temporal.</p>
-                    <!-- Banner informativo TXT -->
-                    <div id="txtInfoBanner" class="hidden p-3 bg-pink-500/10 border border-pink-500/30 rounded-xl text-[10px] text-pink-700 dark:text-pink-300 space-y-1">
-                        <p class="font-bold text-[11px]">📄 Modo Análisis de Texto</p>
-                        <p>El sistema extrajo métricas automáticas de tu .txt:</p>
-                        <ul class="list-disc list-inside space-y-0.5 mt-1">
-                            <li><b>Total_Palabras</b>: palabras por párrafo</li>
-                            <li><b>Total_Oraciones</b>: oraciones por párrafo</li>
-                            <li><b>Palabras_Únicas</b>: vocabulario único</li>
-                            <li><b>Densidad_Léxica</b>: riqueza léxica (0-1)</li>
-                            <li><b>Frec_*</b>: frecuencia de las 8 palabras clave</li>
-                        </ul>
-                        <p class="mt-1 text-slate-400">Selecciona la métrica que deseas usar como variable de estado.</p>
+                    <div id="txtInfoBanner" class="hidden p-3 bg-pink-500/10 border border-pink-500/30 rounded-xl text-[11px] text-pink-700 dark:text-pink-300 space-y-2">
+                        <p class="font-bold">Modo artículo (.txt) activo</p>
+                        <p>El sistema lee el texto en orden y usa las <strong>20 palabras clave más frecuentes</strong> como estados. No necesitas elegir columna: deja la opción automática y pulsa <strong>Calcular y Simular</strong>.</p>
+                        <p class="text-[10px] text-slate-500 dark:text-slate-400">La vista previa por párrafo es solo informativa; la cadena de Markov se construye sobre la secuencia lineal de palabras.</p>
                     </div>
+                    <p id="excelColHint" class="text-[10px] text-slate-400">Para Excel/Word: elige la columna categórica. El motor contará transiciones consecutivas.</p>
                 </div>
             </div>
 
@@ -167,14 +161,45 @@
                 </button>
             </div>
 
+            <!-- Diagrama de Transición (SVG) -->
+            <div class="glass p-6 rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50">
+                <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Diagrama de Transición de Estados</h4>
+                <p class="text-[10px] text-slate-400 mb-4">Palabras clave (máx. 20) · Solo flechas con probabilidad ≥ 5% · Pasa el cursor sobre un nodo para ver su nombre completo</p>
+                <div class="w-full bg-slate-900/40 dark:bg-black/30 rounded-2xl border border-slate-700/40 overflow-hidden" style="min-height: 340px;">
+                    <svg id="transitionGraphSvg" class="w-full" viewBox="0 0 700 340" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <marker id="markovArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                                <path d="M 0 1 L 10 5 L 0 9 z" fill="#ec4899"/>
+                            </marker>
+                        </defs>
+                        <g id="transitionEdgesGroup"></g>
+                        <g id="transitionNodesGroup"></g>
+                    </svg>
+                </div>
+            </div>
+
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Tarjeta Matriz Calculada -->
                 <div class="glass p-6 rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50">
-                    <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Matriz de Transición Estimada/Validada</h4>
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-xs text-center border-collapse">
+                    <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Top 10 Transiciones Más Probables</h4>
+                    <p id="matrixFilterNote" class="text-[10px] text-slate-400 mb-3 hidden"></p>
+                    <div class="overflow-x-auto overflow-y-auto markov-matrix-scroll mb-4 max-h-[220px]">
+                        <table class="w-full text-xs text-left border-collapse">
+                            <thead class="sticky top-0 bg-pink-500/10 z-10">
+                                <tr class="text-pink-700 dark:text-pink-400 font-bold uppercase tracking-wider text-[10px]">
+                                    <th class="py-2 px-3">Origen</th>
+                                    <th class="py-2 px-3">Destino</th>
+                                    <th class="py-2 px-3 text-right">P(i→j)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resTopTransitionsBody"></tbody>
+                        </table>
+                    </div>
+                    <h5 class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Matriz Completa (Top 20 estados)</h5>
+                    <div class="overflow-x-auto overflow-y-auto markov-matrix-scroll">
+                        <table class="w-full text-xs text-center border-collapse min-w-0">
                             <thead>
-                                <tr id="resMatrixHeader" class="bg-pink-500/10 text-pink-700 dark:text-pink-400 font-bold uppercase tracking-wider"></tr>
+                                <tr id="resMatrixHeader" class="bg-pink-500/10 text-pink-700 dark:text-pink-400 font-bold uppercase tracking-wider text-[10px]"></tr>
                             </thead>
                             <tbody id="resMatrixBody"></tbody>
                         </table>
@@ -268,6 +293,46 @@
         to { transform: scale(1); opacity: 1; }
     }
     
+    .markov-state-node {
+        fill: rgba(30, 41, 59, 0.95);
+        stroke: #ec4899;
+        stroke-width: 2.5px;
+        filter: drop-shadow(0 4px 8px rgba(236, 72, 153, 0.25));
+    }
+    .markov-state-label {
+        font-family: 'Inter', sans-serif;
+        font-size: 10px;
+        font-weight: 800;
+        fill: #f1f5f9;
+        text-anchor: middle;
+    }
+    .markov-edge-label {
+        font-family: 'Inter', sans-serif;
+        font-size: 8px;
+        font-weight: 700;
+        fill: #f472b6;
+    }
+    .markov-edge-curve {
+        fill: none;
+        stroke: #ec4899;
+        stroke-width: 1.8px;
+        opacity: 0.75;
+        marker-end: url(#markovArrow);
+    }
+    .markov-matrix-scroll {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 400px;
+        -webkit-overflow-scrolling: touch;
+    }
+    .markov-matrix-scroll th,
+    .markov-matrix-scroll td {
+        max-width: 72px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        padding: 0.35rem 0.5rem;
+    }
     .state-node-sim {
         width: 100px;
         height: 100px;
@@ -334,7 +399,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const resultsDashboard = document.getElementById('resultsDashboard');
     const resMatrixHeader = document.getElementById('resMatrixHeader');
     const resMatrixBody = document.getElementById('resMatrixBody');
+    const resTopTransitionsBody = document.getElementById('resTopTransitionsBody');
+    const matrixFilterNote = document.getElementById('matrixFilterNote');
     const resSteadyState = document.getElementById('resSteadyState');
+
+    const EDGE_DISPLAY_THRESHOLD = 0.05;
+    const MAX_GRAPH_EDGES = 80;
+    let transitionGraphRendered = false;
     
     const btnSimStep = document.getElementById('btnSimStep');
     const btnSimFast = document.getElementById('btnSimFast');
@@ -617,8 +688,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const sheet = data.sheets[0];
                     availableColumns = sheet.columns;
                     
-                    // Populate select options
                     colSelect.innerHTML = '';
+                    if (file.name.toLowerCase().endsWith('.txt')) {
+                        const autoOpt = document.createElement('option');
+                        autoOpt.value = '';
+                        autoOpt.textContent = '(Secuencia automática de palabras clave)';
+                        colSelect.appendChild(autoOpt);
+                    }
                     availableColumns.forEach(col => {
                         const opt = document.createElement('option');
                         opt.value = col;
@@ -627,16 +703,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     
                     columnSelection.classList.remove('hidden');
-                    
-                    // Mostrar banner si es TXT
+                    const isTxt = file.name.toLowerCase().endsWith('.txt');
                     const txtBanner = document.getElementById('txtInfoBanner');
-                    if (txtBanner) {
-                        if (file.name.toLowerCase().endsWith('.txt')) {
-                            txtBanner.classList.remove('hidden');
-                        } else {
-                            txtBanner.classList.add('hidden');
-                        }
-                    }
+                    const excelColHint = document.getElementById('excelColHint');
+                    if (txtBanner) txtBanner.classList.toggle('hidden', !isTxt);
+                    if (excelColHint) excelColHint.classList.toggle('hidden', isTxt);
+                    if (isTxt && colSelect.options.length) colSelect.selectedIndex = 0;
                     
                     // Render preview in panel
                     renderPreview(sheet);
@@ -737,6 +809,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (resp.ok) {
                     const resData = await resp.json();
+                    resData.transitions = buildTopTransitionsClient(states, matrixData, 10);
+                    resData.transitions_graph = buildTopTransitionsClient(states, matrixData, 50);
                     renderResultsDashboard(states, matrixData, resData, steps);
                 } else {
                     const err = await resp.json();
@@ -749,16 +823,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnCalculate.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Calcular y Simular`;
             }
         } else {
-            // MODO ARCHIVO EXCEL
-            if (!uploadedFile) {
-                showError("Sube un archivo de Excel para proceder.");
+            const docLib = document.querySelector('[data-document-library]')?._docLib;
+            const selectedDocIds = docLib ? docLib.getSelectedIds() : [];
+            if (!uploadedFile && selectedDocIds.length === 0) {
+                showError("Seleccione artículos en la biblioteca, suba un .txt o use Excel/Word.");
                 return;
             }
-            const targetCol = colSelect.value;
+            const targetCol = colSelect.value || null;
             
             const formData = new FormData();
-            formData.append('file', uploadedFile);
-            formData.append('column', targetCol);
+            if (uploadedFile) formData.append('file', uploadedFile);
+            if (docLib) docLib.appendIdsToFormData(formData);
+            formData.append('column', targetCol || '');
             formData.append('steps', steps);
             
             btnCalculate.disabled = true;
@@ -790,20 +866,89 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    function truncateLabel(text, maxLen = 10) {
+        if (!text) return '';
+        const s = String(text);
+        return s.length > maxLen ? s.slice(0, maxLen - 1) + '…' : s;
+    }
+
+    function buildTopTransitionsClient(states, matrix, limit = 10) {
+        const list = [];
+        for (let i = 0; i < states.length; i++) {
+            for (let j = 0; j < states.length; j++) {
+                const p = matrix[i][j];
+                if (p >= EDGE_DISPLAY_THRESHOLD) {
+                    list.push({ from: states[i], to: states[j], probability: p });
+                }
+            }
+        }
+        list.sort((a, b) => b.probability - a.probability);
+        return list.slice(0, limit);
+    }
+
+    function destroyTransitionGraph() {
+        const edgesGroup = document.getElementById('transitionEdgesGroup');
+        const nodesGroup = document.getElementById('transitionNodesGroup');
+        if (edgesGroup) edgesGroup.replaceChildren();
+        if (nodesGroup) nodesGroup.replaceChildren();
+        transitionGraphRendered = false;
+    }
+
+    function destroyResultsVisualizations() {
+        destroyTransitionGraph();
+        if (convergenceChart) {
+            convergenceChart.destroy();
+            convergenceChart = null;
+        }
+        simulationCanvas.innerHTML = '';
+    }
+
     // ── RENDER RESULTS DASHBOARD ──
     function renderResultsDashboard(activeStates, activeMatrix, data, steps) {
+        destroyResultsVisualizations();
+
         resultsDashboard.classList.remove('hidden');
         window.scrollTo({
             top: resultsDashboard.offsetTop - 80,
             behavior: 'smooth'
         });
 
-        // 1. Render Transition Matrix Table
-        resMatrixHeader.innerHTML = '<th class="py-2.5 px-4 font-bold text-center border-b border-pink-500/20">Origen \\ Destino</th>';
+        if (data.meta && matrixFilterNote) {
+            const m = data.meta;
+            if (m.filtered) {
+                matrixFilterNote.classList.remove('hidden');
+                matrixFilterNote.textContent =
+                    `Optimizado: ${m.vocabulary_size_before} palabras únicas → Top ${m.states_count} estados ` +
+                    `(${m.filtered_sequence_length} tokens en secuencia filtrada).`;
+            } else {
+                matrixFilterNote.classList.add('hidden');
+            }
+        }
+
+        const topTrans = data.transitions || buildTopTransitionsClient(activeStates, activeMatrix, 10);
+        resTopTransitionsBody.innerHTML = '';
+        if (topTrans.length === 0) {
+            resTopTransitionsBody.innerHTML =
+                '<tr><td colspan="3" class="py-3 px-3 text-slate-400 text-[10px]">No hay transiciones ≥ 5%</td></tr>';
+        } else {
+            topTrans.forEach((t, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = idx % 2 === 0 ? '' : 'bg-pink-500/5';
+                tr.innerHTML = `
+                    <td class="py-1.5 px-3 font-semibold text-slate-700 dark:text-slate-300" title="${t.from}">${truncateLabel(t.from, 14)}</td>
+                    <td class="py-1.5 px-3 font-semibold text-slate-700 dark:text-slate-300" title="${t.to}">${truncateLabel(t.to, 14)}</td>
+                    <td class="py-1.5 px-3 text-right font-mono font-bold text-pink-600 dark:text-pink-400">${(t.probability * 100).toFixed(1)}%</td>
+                `;
+                resTopTransitionsBody.appendChild(tr);
+            });
+        }
+
+        resMatrixHeader.innerHTML = '<th class="py-2 px-2 font-bold text-center border-b border-pink-500/20">\\</th>';
         activeStates.forEach(s => {
             const th = document.createElement('th');
-            th.className = 'py-2.5 px-4 font-bold text-center border-b border-pink-500/20';
-            th.textContent = s;
+            th.className = 'py-2 px-2 font-bold text-center border-b border-pink-500/20';
+            th.title = s;
+            th.textContent = truncateLabel(s, 8);
             resMatrixHeader.appendChild(th);
         });
 
@@ -811,16 +956,15 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < activeStates.length; i++) {
             const tr = document.createElement('tr');
             tr.className = i % 2 === 0 ? '' : 'bg-pink-500/5';
-            
             const firstTd = document.createElement('td');
-            firstTd.className = 'py-2 px-4 font-bold text-slate-700 dark:text-slate-300 text-center border-b border-slate-100 dark:border-slate-800';
-            firstTd.textContent = activeStates[i];
+            firstTd.className = 'py-1.5 px-2 font-bold text-slate-700 dark:text-slate-300 text-center border-b border-slate-100 dark:border-slate-800';
+            firstTd.title = activeStates[i];
+            firstTd.textContent = truncateLabel(activeStates[i], 8);
             tr.appendChild(firstTd);
-            
             for (let j = 0; j < activeStates.length; j++) {
                 const td = document.createElement('td');
-                td.className = 'py-2 px-4 font-mono text-center border-b border-slate-100 dark:border-slate-800';
-                td.textContent = activeMatrix[i][j].toFixed(4);
+                td.className = 'py-1.5 px-2 font-mono text-center border-b border-slate-100 dark:border-slate-800 text-[10px]';
+                td.textContent = activeMatrix[i][j].toFixed(3);
                 tr.appendChild(td);
             }
             resMatrixBody.appendChild(tr);
@@ -846,17 +990,155 @@ document.addEventListener('DOMContentLoaded', () => {
             resSteadyState.appendChild(block);
         });
 
-        // 3. Render Chart.js Convergence Line Chart
-        renderConvergenceChart(activeStates, data.projections);
+        requestAnimationFrame(() => {
+            drawTransitionGraph(activeStates, activeMatrix);
+            renderConvergenceChart(activeStates, data.projections);
+            initMonteCarloPanel(activeStates, activeMatrix, data.simulated_path);
+        });
+    }
 
-        // 4. Initialize Monte Carlo Simulation Panel
-        initMonteCarloPanel(activeStates, activeMatrix, data.simulated_path);
+    function applyNodeRepulsion(positions, stateNames, cx, cy, baseRadius, nodeR) {
+        const pts = stateNames.map(s => ({ name: s, x: positions[s].x, y: positions[s].y }));
+        const minDist = nodeR * 2.2 + 8;
+        for (let iter = 0; iter < 40; iter++) {
+            for (let i = 0; i < pts.length; i++) {
+                for (let j = i + 1; j < pts.length; j++) {
+                    let dx = pts[j].x - pts[i].x;
+                    let dy = pts[j].y - pts[i].y;
+                    let dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
+                    if (dist < minDist) {
+                        const push = ((minDist - dist) / dist) * 0.55;
+                        pts[i].x -= dx * push;
+                        pts[i].y -= dy * push;
+                        pts[j].x += dx * push;
+                        pts[j].y += dy * push;
+                    }
+                }
+            }
+            pts.forEach(p => {
+                let dx = p.x - cx;
+                let dy = p.y - cy;
+                let dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
+                p.x = cx + (dx / dist) * baseRadius;
+                p.y = cy + (dy / dist) * baseRadius;
+            });
+        }
+        pts.forEach(p => { positions[p.name] = { x: p.x, y: p.y }; });
+    }
+
+    function drawTransitionGraph(activeStates, activeMatrix) {
+        destroyTransitionGraph();
+
+        const edgesGroup = document.getElementById('transitionEdgesGroup');
+        const nodesGroup = document.getElementById('transitionNodesGroup');
+        const svg = document.getElementById('transitionGraphSvg');
+        if (!edgesGroup || !nodesGroup || !svg) return;
+
+        const n = activeStates.length;
+        if (n === 0) return;
+
+        const cx = 350;
+        const cy = 170;
+        const baseRadius = Math.min(155, 55 + n * 5);
+        const nodeR = Math.max(14, Math.min(28, 320 / n));
+
+        const positions = {};
+        activeStates.forEach((state, i) => {
+            const angle = (2 * Math.PI * i / n) - Math.PI / 2;
+            positions[state] = {
+                x: cx + baseRadius * Math.cos(angle),
+                y: cy + baseRadius * Math.sin(angle),
+            };
+        });
+        applyNodeRepulsion(positions, activeStates, cx, cy, baseRadius, nodeR);
+
+        const edgeCandidates = [];
+        for (let i = 0; i < n; i++) {
+            for (let j = 0; j < n; j++) {
+                const prob = activeMatrix[i][j];
+                if (prob >= EDGE_DISPLAY_THRESHOLD) {
+                    edgeCandidates.push({ i, j, prob });
+                }
+            }
+        }
+        edgeCandidates.sort((a, b) => b.prob - a.prob);
+        const edgesToDraw = edgeCandidates.slice(0, MAX_GRAPH_EDGES);
+
+        edgesToDraw.forEach(({ i, j, prob }) => {
+            const from = activeStates[i];
+            const to = activeStates[j];
+            const p1 = positions[from];
+            const p2 = positions[to];
+            if (!p1 || !p2) return;
+
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const ux = dx / dist;
+            const uy = dy / dist;
+            const startX = p1.x + ux * (nodeR + 3);
+            const startY = p1.y + uy * (nodeR + 3);
+            const endX = p2.x - ux * (nodeR + 6);
+            const endY = p2.y - uy * (nodeR + 6);
+
+            const midX = (startX + endX) / 2;
+            const midY = (startY + endY) / 2;
+            const curve = i === j ? 28 : 18 + prob * 12;
+            const ctrlX = midX - uy * curve;
+            const ctrlY = midY + ux * curve;
+
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', `M ${startX} ${startY} Q ${ctrlX} ${ctrlY} ${endX} ${endY}`);
+            path.setAttribute('class', 'markov-edge-curve');
+            path.setAttribute('stroke-width', String(Math.max(1.2, Math.min(3.5, prob * 5))));
+            path.setAttribute('opacity', String(Math.min(0.95, 0.4 + prob)));
+            edgesGroup.appendChild(path);
+
+            if (prob >= 0.08) {
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.setAttribute('x', ctrlX);
+                label.setAttribute('y', ctrlY - 3);
+                label.setAttribute('text-anchor', 'middle');
+                label.setAttribute('class', 'markov-edge-label');
+                label.textContent = Math.round(prob * 100) + '%';
+                edgesGroup.appendChild(label);
+            }
+        });
+
+        activeStates.forEach(state => {
+            const pos = positions[state];
+            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('cx', pos.x);
+            circle.setAttribute('cy', pos.y);
+            circle.setAttribute('r', nodeR);
+            circle.setAttribute('class', 'markov-state-node');
+            const titleEl = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+            titleEl.textContent = state;
+            g.appendChild(titleEl);
+            g.appendChild(circle);
+
+            const t1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            t1.setAttribute('x', pos.x);
+            t1.setAttribute('y', pos.y + 3);
+            t1.setAttribute('text-anchor', 'middle');
+            t1.setAttribute('class', 'markov-state-label');
+            t1.setAttribute('font-size', n > 12 ? '8' : '9');
+            t1.textContent = truncateLabel(state, n > 12 ? 8 : 11);
+            g.appendChild(t1);
+            nodesGroup.appendChild(g);
+        });
+
+        transitionGraphRendered = true;
     }
 
     // ── CHART.JS CONVERGENCE CHART ──
     function renderConvergenceChart(activeStates, projections) {
-        if (convergenceChart) convergenceChart.destroy();
-        
+        if (convergenceChart) {
+            convergenceChart.destroy();
+            convergenceChart = null;
+        }
+
         const labels = Array.from({ length: projections.length }, (_, i) => `Paso ${i}`);
         
         const datasets = activeStates.map((s, idx) => {
@@ -941,9 +1223,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function drawSimulationCanvas() {
-        simulationCanvas.innerHTML = '';
-        
-        simStatesList.forEach((state, idx) => {
+        while (simulationCanvas.firstChild) {
+            simulationCanvas.removeChild(simulationCanvas.firstChild);
+        }
+
+        simStatesList.forEach((state) => {
             const bubble = document.createElement('div');
             bubble.id = `simNode-${state}`;
             bubble.className = 'state-node-sim border';
@@ -953,9 +1237,12 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const isActive = simPath[simActiveStateIndex] === state;
             bubble.className = `state-node-sim border ${isActive ? activeColor : passiveColor}`;
+            bubble.style.width = '72px';
+            bubble.style.height = '72px';
+            bubble.style.fontSize = '10px';
             bubble.innerHTML = `
-                <span class="text-xs uppercase tracking-wide">Estado</span>
-                <span class="text-sm font-black">${state}</span>
+                <span class="text-[8px] uppercase tracking-wide">Estado</span>
+                <span class="text-[10px] font-black leading-tight">${truncateLabel(state, 9)}</span>
             `;
             simulationCanvas.appendChild(bubble);
         });
@@ -1043,6 +1330,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function hideError() {
         errorAlert.classList.add('hidden');
+    }
+
+    // Biblioteca SQLite: preview y secuencia automática al seleccionar artículos
+    const docLibMarkov = document.querySelector('[data-document-library]')?._docLib;
+    if (docLibMarkov) {
+        docLibMarkov.onSelectionChange = async (ids) => {
+            if (!ids.length) {
+                columnSelection.classList.add('hidden');
+                return;
+            }
+            hideError();
+            try {
+                const data = await docLibMarkov.fetchCorpusPreview();
+                if (!data.sheets?.length) return;
+                const sheet = data.sheets[0];
+                availableColumns = sheet.columns || [];
+                colSelect.innerHTML = '';
+                const autoOpt = document.createElement('option');
+                autoOpt.value = '';
+                autoOpt.textContent = '(Secuencia automática de palabras clave)';
+                colSelect.appendChild(autoOpt);
+                availableColumns.forEach(col => {
+                    const opt = document.createElement('option');
+                    opt.value = col;
+                    opt.textContent = col;
+                    colSelect.appendChild(opt);
+                });
+                columnSelection.classList.remove('hidden');
+                colSelect.selectedIndex = 0;
+                const txtBanner = document.getElementById('txtInfoBanner');
+                const excelColHint = document.getElementById('excelColHint');
+                if (txtBanner) txtBanner.classList.remove('hidden');
+                if (excelColHint) excelColHint.classList.add('hidden');
+                renderPreview(sheet);
+                dataPreviewPanel.classList.remove('hidden');
+            } catch (e) {
+                showError(e.message);
+            }
+        };
     }
 });
 </script>
