@@ -1,0 +1,943 @@
+{% extends "base_analyzer.html" %}
+
+{% block title %}Árbol de Problemas - Analizador Estadístico{% endblock %}
+{% block page_title %}Modelado del Árbol de Problemas{% endblock %}
+{% block page_subtitle %}Planificación estratégica mediante la estructura de efectos, problema central y causas raíz{% endblock %}
+
+{% block content %}
+<!-- SheetJS CDN for excel parsing inside browser -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<div class="hidden">{% csrf_token %}</div>
+
+<!-- Error Alert -->
+<div id="errorAlert" class="hidden mb-6 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-400 p-4 rounded-xl shadow-sm animate-fade-in-up" role="alert">
+    <p class="font-bold">Error en el proceso</p>
+    <p id="errorMessage" class="text-sm">Ha ocurrido un error al procesar los datos.</p>
+</div>
+
+<div class="grid grid-cols-1 xl:grid-cols-4 gap-6 animate-fade-in-up">
+    <!-- Panel Izquierdo: Configuración y Datos Vinculados (col-span-1) -->
+    <div class="xl:col-span-1 space-y-6">
+        <!-- Origen de Datos (Carga del Excel) -->
+        <div class="glass p-6 rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50">
+            <h3 class="text-lg font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+                <span class="w-2 h-6 bg-purple-500 rounded-full"></span>
+                Sustentación de Datos
+            </h3>
+            
+            <p class="text-xs text-slate-400 mb-4">Sube un dataset para vincular causas y efectos a métricas numéricas reales.</p>
+
+            <!-- Dropzone -->
+            <div id="dropZone" class="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-purple-500 dark:hover:border-purple-500 rounded-2xl p-6 text-center cursor-pointer transition-all duration-300 bg-white/30 dark:bg-slate-800/10 backdrop-blur-sm shadow-inner group">
+                <input type="file" id="fileInput" accept=".xlsx,.xls,.docx,.doc,.txt" class="hidden">
+                <div class="flex flex-col items-center">
+                    <div class="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-900/20 text-purple-500 dark:text-purple-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                        </svg>
+                    </div>
+                    <p class="text-xs font-semibold text-slate-700 dark:text-slate-300">Arrastra tu archivo aquí</p>
+                    <p class="text-[10px] text-slate-400 mt-0.5">Soporta: .xlsx, .xls, .docx, .doc, .txt</p>
+                </div>
+            </div>
+
+            <!-- Display de archivo cargado -->
+            <div id="fileDisplay" class="hidden flex items-center justify-between p-3 bg-purple-50/50 dark:bg-purple-900/10 border border-purple-200/50 dark:border-purple-800/30 rounded-xl">
+                <span id="fileName" class="text-xs font-semibold text-purple-700 dark:text-purple-400 truncate max-w-[150px]">archivo.xlsx</span>
+                <button type="button" id="btnRemoveFile" class="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Banner TXT informativo -->
+            <div id="txtInfoBanner" class="hidden mt-3 p-3 bg-purple-500/10 border border-purple-500/30 rounded-xl text-[10px] text-purple-700 dark:text-purple-300 space-y-1">
+                <p class="font-bold text-[11px]">📄 Modo Análisis de Texto</p>
+                <p>El sistema extrajo estas métricas automáticas de tu .txt:</p>
+                <ul class="list-disc list-inside space-y-0.5 mt-1">
+                    <li><b>Total_Palabras</b>: palabras por párrafo</li>
+                    <li><b>Total_Oraciones</b>: oraciones por párrafo</li>
+                    <li><b>Palabras_Únicas</b>: vocabulario único del párrafo</li>
+                    <li><b>Densidad_Léxica</b>: riqueza léxica (0.0 - 1.0)</li>
+                    <li><b>Frec_*</b>: frecuencia de las 8 palabras clave del texto</li>
+                </ul>
+                <p class="mt-1 text-slate-400">Vincula cualquiera de estas métricas a las tarjetas del árbol.</p>
+            </div>
+        </div>
+
+        <!-- Panel de Edición de Nodo / Tarjeta -->
+        <div id="cardEditPanel" class="glass p-6 rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50 hidden">
+            <h3 class="text-base font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+                <span class="w-1.5 h-5 bg-purple-500 rounded-full"></span>
+                Editar Tarjeta
+            </h3>
+
+            <div class="space-y-4">
+                <!-- Texto -->
+                <div>
+                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Texto de la Tarjeta</label>
+                    <textarea id="cardTextInput" rows="2" class="w-full bg-white/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-600 rounded-lg text-xs px-2.5 py-1.5 text-slate-800 dark:text-white focus:ring-purple-500"></textarea>
+                </div>
+
+                <!-- Vinculación de Columna de Excel (Visible solo si se cargó Excel) -->
+                <div id="excelLinkContainer" class="hidden space-y-2">
+                    <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Vincular Variable Cuantitativa</label>
+                    <select id="colSelect" class="w-full bg-white/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-600 rounded-lg text-xs px-2.5 py-1.5 text-slate-700 dark:text-slate-300">
+                        <option value="">-- No vinculada --</option>
+                        <!-- Llenado vía JS -->
+                    </select>
+                    
+                    <div id="cardStatsContainer" class="hidden p-2.5 bg-purple-500/5 dark:bg-purple-500/10 border border-purple-500/10 rounded-xl space-y-1 text-[10px]">
+                        <p class="font-bold text-purple-700 dark:text-purple-400 uppercase tracking-widest text-[9px] mb-1">📊 Estadísticas del Dataset</p>
+                        <div class="flex justify-between"><span>Media (μ):</span><span id="statMean" class="font-bold">-</span></div>
+                        <div class="flex justify-between"><span>Desviación (σ):</span><span id="statStdDev" class="font-bold">-</span></div>
+                        <div class="flex justify-between"><span>Mínimo:</span><span id="statMin" class="font-bold">-</span></div>
+                        <div class="flex justify-between"><span>Máximo:</span><span id="statMax" class="font-bold">-</span></div>
+                        <div class="flex justify-between"><span>Registros (n):</span><span id="statCount" class="font-bold">-</span></div>
+                    </div>
+                </div>
+                
+                <button type="button" id="btnApplyCardEdit" class="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition">
+                    Aplicar Cambios
+                </button>
+            </div>
+        </div>
+
+        <!-- Descargar Reporte PDF -->
+        <div class="glass p-6 rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50">
+            <button type="button" id="btnDownloadPdf" class="w-full py-3 bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-600 hover:from-purple-600 hover:via-pink-600 hover:to-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-purple-500/20 hover:shadow-purple-500/30 transition-all flex items-center justify-center gap-2 text-xs">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                Descargar Reporte PDF
+            </button>
+        </div>
+    </div>
+
+    <!-- Panel Derecho: Lienzo del Árbol de Problemas (col-span-3) -->
+    <div class="xl:col-span-3 space-y-6">
+        <!-- Vista previa de datos Excel si existe -->
+        <div id="dataPreviewPanel" class="hidden glass p-6 rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50">
+            <h3 class="text-base font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+                <svg class="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                </svg>
+                Vista Previa del Dataset
+            </h3>
+            <div class="overflow-x-auto max-h-40 border border-slate-200 dark:border-slate-700 rounded-xl">
+                <table class="w-full text-xs text-left border-collapse text-slate-600 dark:text-slate-300">
+                    <thead class="sticky top-0 bg-slate-100 dark:bg-slate-800 font-bold uppercase tracking-wider text-[10px]">
+                        <tr id="previewHeaderRow"></tr>
+                    </thead>
+                    <tbody id="previewBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Árbol de Problemas -->
+        <div id="treeContainer" class="glass p-6 rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50 relative overflow-hidden flex flex-col items-center">
+            
+            <!-- SVG para dibujar conectores bezier en segundo plano -->
+            <svg id="treeSvg" class="absolute inset-0 w-full h-full pointer-events-none z-0">
+                <g id="treeLinks"></g>
+            </svg>
+
+            <!-- 1. NIVEL SUPERIOR: EFECTOS (CONSECUENCIAS) -->
+            <div class="w-full mb-12 z-10">
+                <div class="flex justify-between items-center mb-4 px-4">
+                    <h4 class="text-xs font-bold text-purple-500 dark:text-purple-400 uppercase tracking-widest flex items-center gap-1">
+                        <span class="w-1.5 h-4 bg-pink-500 rounded-full"></span>
+                        Efectos (Consecuencias)
+                    </h4>
+                    <button type="button" id="btnAddEffect" class="px-2.5 py-1 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-[10px] font-bold transition shadow shadow-pink-500/10 flex items-center gap-0.5">
+                        ➕ Agregar Efecto
+                    </button>
+                </div>
+                
+                <div id="effectsContainer" class="flex flex-wrap gap-4 justify-center items-stretch min-h-[80px]">
+                    <!-- Tarjetas de Efecto agregadas aquí -->
+                </div>
+            </div>
+
+            <!-- 2. NIVEL MEDIO: PROBLEMA CENTRAL (HIGHLIGHT CARD) -->
+            <div class="w-full mb-12 flex flex-col items-center z-10">
+                <h4 class="text-xs font-bold text-purple-500 dark:text-purple-400 uppercase tracking-widest mb-3 flex items-center gap-1">
+                    <span class="w-1.5 h-4 bg-purple-500 rounded-full"></span>
+                    Problema Central
+                </h4>
+                
+                <!-- Tarjeta del Problema Central -->
+                <div id="probCard" class="cursor-pointer max-w-md w-full bg-gradient-to-br from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white p-5 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 border border-purple-500 hover:scale-102 flex flex-col justify-center items-center text-center relative group min-h-[90px]">
+                    <p id="probText" class="font-bold text-sm leading-relaxed">Arrastre de materiales en procesos críticos de ensamblaje</p>
+                    
+                    <!-- linked indicator -->
+                    <div id="probLinkedIndicator" class="hidden absolute top-2 right-2 bg-white/20 text-white py-0.5 px-2 rounded-full text-[8px] font-bold">
+                        📊 Vinculado
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. NIVEL INFERIOR: CAUSAS (ORÍGENES) -->
+            <div class="w-full z-10">
+                <div class="flex justify-between items-center mb-4 px-4">
+                    <h4 class="text-xs font-bold text-purple-500 dark:text-purple-400 uppercase tracking-widest flex items-center gap-1">
+                        <span class="w-1.5 h-4 bg-indigo-500 rounded-full"></span>
+                        Causas (Orígenes / Raíces)
+                    </h4>
+                    <button type="button" id="btnAddCause" class="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold transition shadow shadow-indigo-500/10 flex items-center gap-0.5">
+                        ➕ Agregar Causa
+                    </button>
+                </div>
+                
+                <div id="causesContainer" class="flex flex-wrap gap-4 justify-center items-stretch min-h-[80px]">
+                    <!-- Tarjetas de Causa agregadas aquí -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Premium style for problem tree card */
+    .tree-card {
+        cursor: pointer;
+        width: 170px;
+        background: rgba(255, 255, 255, 0.85);
+        border: 1px solid rgba(167, 139, 250, 0.3);
+        border-radius: 16px;
+        padding: 12px;
+        position: relative;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .dark .tree-card {
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid rgba(167, 139, 250, 0.15);
+    }
+    .tree-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 10px 15px -3px rgba(167, 139, 250, 0.2);
+    }
+    .tree-card.selected {
+        border-color: #8B5CF6 !important;
+        box-shadow: 0 0 12px rgba(139, 92, 246, 0.3);
+    }
+    .tree-card.effect-style {
+        border-left: 4px solid #EC4899; /* pink style */
+    }
+    .tree-card.cause-style {
+        border-left: 4px solid #6366F1; /* indigo style */
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // ── ESTADO INICIAL DEL ÁRBOL POR DEFECTO ──
+    let problemText = "Baja productividad en la línea de ensamble automatizada";
+    let problemLinkedCol = "";
+    let problemStats = null;
+    
+    let effects = [
+        { id: "e1", text: "Retrasos constantes en los despachos de lotes", linkedColumn: "", stats: null },
+        { id: "e2", text: "Incremento de costos de horas extra operativas", linkedColumn: "", stats: null },
+        { id: "e3", text: "Pérdida de confianza de clientes mayoristas", linkedColumn: "", stats: null }
+    ];
+
+    let causes = [
+        { id: "c1", text: "Fallas mecánicas recurrentes en brazos hidráulicos", linkedColumn: "", stats: null },
+        { id: "c2", text: "Capacitación técnica deficiente del personal nuevo", linkedColumn: "", stats: null },
+        { id: "c3", text: "Inconsistencia en el suministro eléctrico de la planta", linkedColumn: "", stats: null }
+    ];
+
+    let activeSelectedType = "problem"; // "problem", "effect", or "cause"
+    let activeSelectedId = null; // null for problem, or id string for others
+    
+    let uploadedFile = null;
+    let excelRows = [];
+    let availableColumns = [];
+
+    // ── DOM ELEMENTS ──
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileDisplay = document.getElementById('fileDisplay');
+    const fileName = document.getElementById('fileName');
+    const btnRemoveFile = document.getElementById('btnRemoveFile');
+    
+    const dataPreviewPanel = document.getElementById('dataPreviewPanel');
+    const previewHeaderRow = document.getElementById('previewHeaderRow');
+    const previewBody = document.getElementById('previewBody');
+    
+    const treeContainer = document.getElementById('treeContainer');
+    const treeLinks = document.getElementById('treeLinks');
+    
+    const effectsContainer = document.getElementById('effectsContainer');
+    const causesContainer = document.getElementById('causesContainer');
+    
+    const probCard = document.getElementById('probCard');
+    const probText = document.getElementById('probText');
+    const probLinkedIndicator = document.getElementById('probLinkedIndicator');
+    
+    const btnAddEffect = document.getElementById('btnAddEffect');
+    const btnAddCause = document.getElementById('btnAddCause');
+    
+    const cardEditPanel = document.getElementById('cardEditPanel');
+    const cardTextInput = document.getElementById('cardTextInput');
+    const excelLinkContainer = document.getElementById('excelLinkContainer');
+    const colSelect = document.getElementById('colSelect');
+    const cardStatsContainer = document.getElementById('cardStatsContainer');
+    
+    const statMean = document.getElementById('statMean');
+    const statStdDev = document.getElementById('statStdDev');
+    const statMin = document.getElementById('statMin');
+    const statMax = document.getElementById('statMax');
+    const statCount = document.getElementById('statCount');
+    
+    const btnApplyCardEdit = document.getElementById('btnApplyCardEdit');
+    const btnDownloadPdf = document.getElementById('btnDownloadPdf');
+    const errorAlert = document.getElementById('errorAlert');
+    const errorMessage = document.getElementById('errorMessage');
+
+    function getCsrfToken() {
+        const tokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (tokenInput && tokenInput.value) {
+            return tokenInput.value;
+        }
+        const match = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+        return match ? decodeURIComponent(match[2]) : null;
+    }
+
+    function requireCsrfToken() {
+        const token = getCsrfToken();
+        if (!token) {
+            showError('No se encontró el token CSRF. Recarga la página e intenta de nuevo.');
+        }
+        return token;
+    }
+
+    // ── RENDER DE TARJETAS ──
+    function renderTree() {
+        effectsContainer.innerHTML = '';
+        causesContainer.innerHTML = '';
+        
+        // 1. Renderizar Efectos
+        effects.forEach((eff) => {
+            const card = document.createElement('div');
+            const isSelected = activeSelectedType === 'effect' && activeSelectedId === eff.id;
+            card.className = `tree-card effect-style ${isSelected ? 'selected' : ''}`;
+            card.dataset.id = eff.id;
+            card.dataset.type = 'effect';
+            
+            let statsHtml = '';
+            if (eff.linkedColumn && eff.stats) {
+                statsHtml = `
+                    <div class="mt-2 text-[8px] bg-pink-500/10 text-pink-600 dark:text-pink-400 py-0.5 px-1.5 rounded font-mono leading-tight">
+                        📊 ${eff.linkedColumn}<br/>
+                        μ=${eff.stats.mean.toFixed(2)} | n=${eff.stats.count}
+                    </div>
+                `;
+            }
+            
+            card.innerHTML = `
+                <div class="flex-1 flex flex-col justify-between">
+                    <p class="text-xs text-slate-800 dark:text-slate-200 font-medium leading-normal">${eff.text}</p>
+                    ${statsHtml}
+                </div>
+                <button type="button" class="btn-del absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 hover:bg-red-600 text-white rounded-full text-[9px] font-bold flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+            `;
+            
+            // Hover effect delete button visibility
+            card.classList.add('group');
+            card.querySelector('.btn-del').onclick = (e) => {
+                e.stopPropagation();
+                deleteEffect(eff.id);
+            };
+            
+            card.onclick = () => selectCard('effect', eff.id);
+            effectsContainer.appendChild(card);
+        });
+
+        // 2. Renderizar Problema Central (Localizado directamente en HTML, pero actualizamos textos)
+        probText.textContent = problemText;
+        if (activeSelectedType === 'problem') {
+            probCard.className = "cursor-pointer max-w-md w-full bg-gradient-to-br from-purple-600 to-indigo-600 text-white p-5 rounded-2xl shadow-xl border-2 border-white scale-102 flex flex-col justify-center items-center text-center relative group min-h-[90px] ring-4 ring-purple-500/30";
+        } else {
+            probCard.className = "cursor-pointer max-w-md w-full bg-gradient-to-br from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white p-5 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 border border-purple-500 hover:scale-102 flex flex-col justify-center items-center text-center relative group min-h-[90px]";
+        }
+        
+        if (problemLinkedCol && problemStats) {
+            probLinkedIndicator.classList.remove('hidden');
+            probLinkedIndicator.textContent = `📊 ${problemLinkedCol}: μ=${problemStats.mean.toFixed(2)}`;
+        } else {
+            probLinkedIndicator.classList.add('hidden');
+        }
+
+        // 3. Renderizar Causas
+        causes.forEach((cause) => {
+            const card = document.createElement('div');
+            const isSelected = activeSelectedType === 'cause' && activeSelectedId === cause.id;
+            card.className = `tree-card cause-style ${isSelected ? 'selected' : ''}`;
+            card.dataset.id = cause.id;
+            card.dataset.type = 'cause';
+            
+            let statsHtml = '';
+            if (cause.linkedColumn && cause.stats) {
+                statsHtml = `
+                    <div class="mt-2 text-[8px] bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 py-0.5 px-1.5 rounded font-mono leading-tight">
+                        📊 ${cause.linkedColumn}<br/>
+                        μ=${cause.stats.mean.toFixed(2)} | n=${cause.stats.count}
+                    </div>
+                `;
+            }
+            
+            card.innerHTML = `
+                <div class="flex-1 flex flex-col justify-between">
+                    <p class="text-xs text-slate-800 dark:text-slate-200 font-medium leading-normal">${cause.text}</p>
+                    ${statsHtml}
+                </div>
+                <button type="button" class="btn-del absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 hover:bg-red-600 text-white rounded-full text-[9px] font-bold flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+            `;
+            
+            card.classList.add('group');
+            card.querySelector('.btn-del').onclick = (e) => {
+                e.stopPropagation();
+                deleteCause(cause.id);
+            };
+            
+            card.onclick = () => selectCard('cause', cause.id);
+            causesContainer.appendChild(card);
+        });
+
+        // Dibujar conectores vectoriales
+        // Esperamos un instante a que cargue/se renderice el DOM para calcular distancias exactas
+        setTimeout(drawConnectors, 50);
+    }
+
+    // ── DIBUJAR CURVAS SVG DE CONEXIÓN ──
+    function drawConnectors() {
+        treeLinks.innerHTML = '';
+        
+        const probRect = probCard.getBoundingClientRect();
+        const containerRect = treeContainer.getBoundingClientRect();
+        
+        // Coordenadas del Problema Central relativas al contenedor
+        const px = probRect.left - containerRect.left + probRect.width / 2;
+        const pyTop = probRect.top - containerRect.top;
+        const pyBottom = probRect.bottom - containerRect.top;
+        
+        // 1. Trazar curvas a efectos (Efectos están ARRIBA)
+        const effCards = effectsContainer.querySelectorAll('.tree-card');
+        effCards.forEach(card => {
+            const rect = card.getBoundingClientRect();
+            const cx = rect.left - containerRect.left + rect.width / 2;
+            const cyBottom = rect.bottom - containerRect.top;
+            
+            drawBezierCurve(px, pyTop, cx, cyBottom);
+        });
+        
+        // 2. Trazar curvas a causas (Causas están ABAJO)
+        const causeCards = causesContainer.querySelectorAll('.tree-card');
+        causeCards.forEach(card => {
+            const rect = card.getBoundingClientRect();
+            const cx = rect.left - containerRect.left + rect.width / 2;
+            const cyTop = rect.top - containerRect.top;
+            
+            drawBezierCurve(cx, cyTop, px, pyBottom);
+        });
+    }
+
+    function drawBezierCurve(x1, y1, x2, y2) {
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const midY = (y1 + y2) / 2;
+        
+        // Curva cúbica bezier elegante
+        const d = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
+        path.setAttribute('d', d);
+        path.setAttribute('stroke', '#a78bfa');
+        path.setAttribute('stroke-width', '2.5');
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke-dasharray', '4 4'); // dashed
+        treeLinks.appendChild(path);
+    }
+
+    // Redibujar si la ventana cambia de tamaño
+    window.onresize = drawConnectors;
+
+    // ── GESTIÓN DE ACCIONES (Agregar, Eliminar, Seleccionar) ──
+    btnAddEffect.onclick = () => {
+        const id = `e_${Date.now()}`;
+        effects.push({
+            id: id,
+            text: "Consecuencia o impacto indirecto del problema",
+            linkedColumn: "",
+            stats: null
+        });
+        selectCard('effect', id);
+        renderTree();
+    };
+
+    btnAddCause.onclick = () => {
+        const id = `c_${Date.now()}`;
+        causes.push({
+            id: id,
+            text: "Causa u origen técnico primario del problema",
+            linkedColumn: "",
+            stats: null
+        });
+        selectCard('cause', id);
+        renderTree();
+    };
+
+    function deleteEffect(id) {
+        effects = effects.filter(e => e.id !== id);
+        if (activeSelectedType === 'effect' && activeSelectedId === id) {
+            selectCard('problem', null);
+        }
+        renderTree();
+    }
+
+    function deleteCause(id) {
+        causes = causes.filter(c => c.id !== id);
+        if (activeSelectedType === 'cause' && activeSelectedId === id) {
+            selectCard('problem', null);
+        }
+        renderTree();
+    }
+
+    probCard.onclick = () => {
+        selectCard('problem', null);
+    };
+
+    function selectCard(type, id) {
+        activeSelectedType = type;
+        activeSelectedId = id;
+        
+        // Rellenar panel de edición
+        cardEditPanel.classList.remove('hidden');
+        
+        let text = "";
+        let linkedCol = "";
+        let stats = null;
+        
+        if (type === 'problem') {
+            text = problemText;
+            linkedCol = problemLinkedCol;
+            stats = problemStats;
+        } else if (type === 'effect') {
+            const cardObj = effects.find(e => e.id === id);
+            if (cardObj) {
+                text = cardObj.text;
+                linkedCol = cardObj.linkedColumn;
+                stats = cardObj.stats;
+            }
+        } else if (type === 'cause') {
+            const cardObj = causes.find(c => c.id === id);
+            if (cardObj) {
+                text = cardObj.text;
+                linkedCol = cardObj.linkedColumn;
+                stats = cardObj.stats;
+            }
+        }
+        
+        cardTextInput.value = text;
+        
+        // Rellenar selector de columna si Excel está subido
+        if (uploadedFile) {
+            excelLinkContainer.classList.remove('hidden');
+            colSelect.innerHTML = '<option value="">-- No vinculada --</option>';
+            availableColumns.forEach(col => {
+                const opt = document.createElement('option');
+                opt.value = col;
+                opt.textContent = col;
+                if (col === linkedCol) opt.selected = true;
+                colSelect.appendChild(opt);
+            });
+            
+            // Cargar estadísticas si existen
+            if (linkedCol && stats) {
+                cardStatsContainer.classList.remove('hidden');
+                statMean.textContent = stats.mean.toFixed(4);
+                statStdDev.textContent = stats.stdDev.toFixed(4);
+                statMin.textContent = stats.min.toFixed(4);
+                statMax.textContent = stats.max.toFixed(4);
+                statCount.textContent = stats.count;
+            } else {
+                cardStatsContainer.classList.add('hidden');
+            }
+        } else {
+            excelLinkContainer.classList.add('hidden');
+        }
+        
+        // Volver a dibujar para marcar el borde del seleccionado
+        renderTree();
+    }
+
+    // Aplicar cambios desde el Panel de Edición
+    btnApplyCardEdit.onclick = async () => {
+        const text = cardTextInput.value.trim();
+        const linkedCol = colSelect.value;
+        
+        if (!text) {
+            showError("La tarjeta debe contener un texto.");
+            return;
+        }
+        
+        // Calcular estadísticas de columna si se vinculó una en el Excel/Word subido
+        let statsObj = null;
+        if (linkedCol && uploadedFile) {
+            const csrfToken = requireCsrfToken();
+            if (!csrfToken) return;
+            const formData = new FormData();
+            formData.append('file', uploadedFile);
+            formData.append('column', linkedCol);
+            
+            btnApplyCardEdit.disabled = true;
+            btnApplyCardEdit.textContent = "Calculando...";
+            
+            try {
+                const resp = await fetch('/api/file-stats/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: formData
+                });
+                
+                if (resp.ok) {
+                    const resJson = await resp.json();
+                    statsObj = {
+                        mean: resJson.stats.mean,
+                        stdDev: resJson.stats.std,
+                        min: resJson.stats.min,
+                        max: resJson.stats.max,
+                        count: resJson.stats.n
+                    };
+                } else {
+                    const errData = await resp.json();
+                    showError("Error al calcular estadísticas: " + errData.error);
+                }
+            } catch (err) {
+                showError("Error al calcular estadísticas en el servidor: " + err.message);
+            } finally {
+                btnApplyCardEdit.disabled = false;
+                btnApplyCardEdit.textContent = "Aplicar Cambios";
+            }
+        }
+
+        if (activeSelectedType === 'problem') {
+            problemText = text;
+            problemLinkedCol = linkedCol;
+            problemStats = statsObj;
+        } else if (activeSelectedType === 'effect') {
+            const eff = effects.find(e => e.id === activeSelectedId);
+            if (eff) {
+                eff.text = text;
+                eff.linkedColumn = linkedCol;
+                eff.stats = statsObj;
+            }
+        } else if (activeSelectedType === 'cause') {
+            const cause = causes.find(c => c.id === activeSelectedId);
+            if (cause) {
+                cause.text = text;
+                cause.linkedColumn = linkedCol;
+                cause.stats = statsObj;
+            }
+        }
+        
+        showSuccessNotification("Tarjeta modificada con éxito!");
+        renderTree();
+        selectCard(activeSelectedType, activeSelectedId); // Recargar panel para mostrar métricas recién calculadas!
+    };
+
+    // ── CALCULAR ESTADÍSTICAS CUANTITATIVAS (BRINDADO POR SHEETJS EN BROWSER) ──
+    function calculateColumnStats(colName) {
+        const vals = excelRows.map(row => parseFloat(row[colName])).filter(v => !isNaN(v));
+        if (vals.length === 0) return null;
+        
+        const sum = vals.reduce((a, b) => a + b, 0);
+        const mean = sum / vals.length;
+        const min = Math.min(...vals);
+        const max = Math.max(...vals);
+        
+        // Std Dev
+        const squareDiffs = vals.map(v => Math.pow(v - mean, 2));
+        const avgSquareDiff = squareDiffs.reduce((a, b) => a + b, 0) / vals.length;
+        const stdDev = Math.sqrt(avgSquareDiff);
+        
+        return {
+            mean: mean,
+            stdDev: stdDev,
+            min: min,
+            max: max,
+            count: vals.length
+        };
+    }
+
+    // Drag and drop event handling for dropZone
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('border-purple-500', 'bg-purple-500/10');
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('border-purple-500', 'bg-purple-500/10');
+        }, false);
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length > 0) {
+            handleUploadedFile(files[0]);
+        }
+    }, false);
+
+    // ── PROCESAMIENTO DE EXCEL O WORD (CON BASE EN EL SERVIDOR) ──
+    async function handleUploadedFile(file) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (ext !== 'xlsx' && ext !== 'xls' && ext !== 'docx' && ext !== 'doc' && ext !== 'txt') {
+            showError("Formato de archivo no soportado. Se permiten: .xlsx, .xls, .docx, .doc, .txt");
+            return;
+        }
+
+        hideError();
+        uploadedFile = file;
+        fileName.textContent = file.name;
+        dropZone.classList.add('hidden');
+        fileDisplay.classList.remove('hidden');
+        
+        const csrfToken = requireCsrfToken();
+        if (!csrfToken) return;
+        const formData = new FormData();
+        formData.append('files', file);
+        
+        try {
+            const resp = await fetch('/api/columns/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                body: formData
+            });
+            
+            if (!resp.ok) {
+                const errData = await resp.json();
+                throw new Error(errData.error || "Error al procesar el archivo en el servidor.");
+            }
+            
+            const data = await resp.json();
+            if (data.sheets && data.sheets.length > 0) {
+                // Por defecto usamos la primera hoja/tabla
+                const firstSheet = data.sheets[0];
+                availableColumns = firstSheet.columns;
+                excelRows = firstSheet.preview;
+                
+                // Mostrar/ocultar banner TXT
+                const txtBanner = document.getElementById('txtInfoBanner');
+                if (txtBanner) {
+                    if (file.name.toLowerCase().endsWith('.txt')) {
+                        txtBanner.classList.remove('hidden');
+                    } else {
+                        txtBanner.classList.add('hidden');
+                    }
+                }
+
+                // Renderizar tabla de vista previa
+                renderPreviewTable(availableColumns, excelRows.slice(0, 10));
+                dataPreviewPanel.classList.remove('hidden');
+                
+                // Si hay una tarjeta seleccionada, activar el selector de columna
+                selectCard(activeSelectedType, activeSelectedId);
+                showSuccessNotification("Archivo importado y procesado con éxito. ¡Vincule columnas a sus tarjetas!");
+            } else {
+                showError("El archivo no contiene tablas o columnas válidas.");
+            }
+        } catch (err) {
+            showError("No se pudo analizar el contenido del archivo: " + err.message);
+            btnRemoveFile.click();
+        }
+    }
+
+    function renderPreviewTable(cols, rows) {
+        previewHeaderRow.innerHTML = '';
+        previewBody.innerHTML = '';
+        
+        cols.forEach(col => {
+            const th = document.createElement('th');
+            th.className = 'px-4 py-2 border-b border-slate-200 dark:border-slate-700';
+            th.textContent = col;
+            previewHeaderRow.appendChild(th);
+        });
+        
+        rows.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-800/50';
+            cols.forEach(col => {
+                const td = document.createElement('td');
+                td.className = 'px-4 py-2 border-b border-slate-200/50 dark:border-slate-700/50 truncate max-w-[150px]';
+                td.textContent = row[col] !== undefined ? row[col] : '-';
+                tr.appendChild(td);
+            });
+            previewBody.appendChild(tr);
+        });
+    }
+
+    dropZone.onclick = () => fileInput.click();
+    fileInput.onchange = () => {
+        if (fileInput.files.length > 0) {
+            handleUploadedFile(fileInput.files[0]);
+        }
+    };
+
+    btnRemoveFile.onclick = (e) => {
+        e.stopPropagation();
+        fileInput.value = '';
+        uploadedFile = null;
+        excelRows = [];
+        availableColumns = [];
+        fileDisplay.classList.add('hidden');
+        dropZone.classList.remove('hidden');
+        dataPreviewPanel.classList.add('hidden');
+        previewHeaderRow.innerHTML = '';
+        previewBody.innerHTML = '';
+        
+        // Reiniciar vinculaciones locales en todas las tarjetas
+        problemLinkedCol = "";
+        problemStats = null;
+        effects.forEach(e => { e.linkedColumn = ""; e.stats = null; });
+        causes.forEach(c => { c.linkedColumn = ""; c.stats = null; });
+        
+        selectCard(activeSelectedType, activeSelectedId);
+        renderTree();
+    };
+
+    // ── DESCARGAR REPORTE PDF (ENVIANDO DATOS AL SERVIDOR) ──
+    btnDownloadPdf.onclick = async () => {
+        hideError();
+        
+        // Empaquetar la vinculación de datos cuantitativos (linked_data)
+        const linkedData = [];
+        
+        if (problemLinkedCol && problemStats) {
+            linkedData.push({
+                node_type: "Problema Central",
+                node_text: problemText,
+                columna: problemLinkedCol,
+                stats: {
+                    "Media (μ)": problemStats.mean.toFixed(4),
+                    "Desviación (σ)": problemStats.stdDev.toFixed(4),
+                    "Mínimo": problemStats.min.toFixed(4),
+                    "Máximo": problemStats.max.toFixed(4),
+                    "Tamaño muestra (n)": problemStats.count
+                }
+            });
+        }
+        
+        effects.forEach((eff, idx) => {
+            if (eff.linkedColumn && eff.stats) {
+                linkedData.push({
+                    node_type: `Efecto ${idx + 1}`,
+                    node_text: eff.text,
+                    columna: eff.linkedColumn,
+                    stats: {
+                        "Media (μ)": eff.stats.mean.toFixed(4),
+                        "Desviación (σ)": eff.stats.stdDev.toFixed(4),
+                        "Mínimo": eff.stats.min.toFixed(4),
+                        "Máximo": eff.stats.max.toFixed(4),
+                        "Tamaño muestra (n)": eff.stats.count
+                    }
+                });
+            }
+        });
+        
+        causes.forEach((cause, idx) => {
+            if (cause.linkedColumn && cause.stats) {
+                linkedData.push({
+                    node_type: `Causa ${idx + 1}`,
+                    node_text: cause.text,
+                    columna: cause.linkedColumn,
+                    stats: {
+                        "Media (μ)": cause.stats.mean.toFixed(4),
+                        "Desviación (σ)": cause.stats.stdDev.toFixed(4),
+                        "Mínimo": cause.stats.min.toFixed(4),
+                        "Máximo": cause.stats.max.toFixed(4),
+                        "Tamaño muestra (n)": cause.stats.count
+                    }
+                });
+            }
+        });
+        
+        const csrfToken = requireCsrfToken();
+        if (!csrfToken) return;
+        btnDownloadPdf.disabled = true;
+        btnDownloadPdf.innerHTML = "Generando PDF...";
+        
+        try {
+            const resp = await fetch('/api/problem-tree/pdf/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    problem_text: problemText,
+                    causes: causes.map(c => c.text),
+                    effects: effects.map(e => e.text),
+                    linked_data: linkedData.length > 0 ? linkedData : null
+                })
+            });
+            
+            if (resp.ok) {
+                const blob = await resp.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'arbol_de_problemas.pdf';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                showSuccessNotification("Reporte PDF descargado con éxito!");
+            } else {
+                showError("No se pudo generar el archivo PDF.");
+            }
+        } catch (e) {
+            showError("Error al descargar: " + e.message);
+        } finally {
+            btnDownloadPdf.disabled = false;
+            btnDownloadPdf.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg> Descargar Reporte PDF`;
+        }
+    };
+
+    // ── NOTIFICACIONES FLOTANTES ──
+    function showSuccessNotification(msg) {
+        const notif = document.createElement('div');
+        notif.className = 'fixed bottom-4 right-4 bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg border border-emerald-400 text-xs animate-bounce z-50';
+        notif.textContent = msg;
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 3000);
+    }
+
+    function showError(msg) {
+        errorMessage.textContent = msg;
+        errorAlert.classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function hideError() {
+        errorAlert.classList.add('hidden');
+    }
+
+    // Inicializar visualización
+    renderTree();
+    selectCard('problem', null);
+});
+</script>
+{% endblock %}

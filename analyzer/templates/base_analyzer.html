@@ -173,6 +173,32 @@
                     <span class="font-medium">Contador de Palabras</span>
                 </a>
 
+                <!-- Modelado y Decisiones Section -->
+                <div class="px-4 py-2 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-4 mb-1">Modelado y Decisiones</div>
+
+                <a href="{% url 'problem_tree' %}" class="sidebar-link {% if request.resolver_match.url_name == 'problem_tree' %}active{% endif %} flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-purple-100/30 dark:hover:bg-purple-950/20 hover:text-purple-600 dark:hover:text-purple-400 transition-all group">
+                    <svg class="w-5 h-5 {% if request.resolver_match.url_name == 'problem_tree' %}text-purple-600 dark:text-purple-400{% else %}text-slate-400 group-hover:text-purple-500{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 3m0-3a2 2 0 110 3m-3 7h6M5 12h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v6a2 2 0 002 2h10a2 2 0 002-2v-6"/>
+                    </svg>
+                    <span class="font-medium">Árbol de Problemas</span>
+                </a>
+
+                <a href="{% url 'bayesian_network' %}" class="sidebar-link {% if request.resolver_match.url_name == 'bayesian_network' %}active{% endif %} flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-cyan-100/30 dark:hover:bg-cyan-950/20 hover:text-cyan-600 dark:hover:text-cyan-400 transition-all group">
+                    <svg class="w-5 h-5 {% if request.resolver_match.url_name == 'bayesian_network' %}text-cyan-600 dark:text-cyan-400{% else %}text-slate-400 group-hover:text-cyan-500{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 10a6 6 0 00-6-6c-3.314 0-6 2.686-6 6M6 10a6 6 0 006 6c3.314 0 6-2.686 6-6zm0 0H2m16 0h4m-10-8v4m0 8v4"/>
+                    </svg>
+                    <span class="font-medium">Red Bayesiana</span>
+                </a>
+
+                <a href="{% url 'markov_chains' %}" class="sidebar-link {% if request.resolver_match.url_name == 'markov_chains' %}active{% endif %} flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-pink-100/30 dark:hover:bg-pink-950/20 hover:text-pink-600 dark:hover:text-pink-400 transition-all group">
+                    <svg class="w-5 h-5 {% if request.resolver_match.url_name == 'markov_chains' %}text-pink-600 dark:text-pink-400{% else %}text-slate-400 group-hover:text-pink-500{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3 3L22 4"/>
+                    </svg>
+                    <span class="font-medium">Cadenas de Markov</span>
+                </a>
+
+                <div class="px-4 py-2 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-4 mb-1">Historial e Información</div>
+
                 <a href="{% url 'history' %}" class="sidebar-link {% if request.resolver_match.url_name == 'history' %}active{% endif %} flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100/50 dark:hover:bg-slate-700/50 hover:text-blue-600 dark:hover:text-blue-400 transition-all group">
                     <svg class="w-5 h-5 {% if request.resolver_match.url_name == 'history' %}text-blue-600 dark:text-blue-400{% else %}text-slate-400 group-hover:text-blue-500{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>

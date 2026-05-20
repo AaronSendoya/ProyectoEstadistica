@@ -341,3 +341,364 @@ def generate_pdf_report(results_pivot, data_dict, chart_types_dict, layout='hori
     doc.build(elements)
     pdf_output.seek(0)
     return pdf_output
+
+
+def generate_problem_tree_pdf(problem_text, causes, effects, linked_data=None):
+    """
+    Genera un reporte PDF con diseño premium para el Árbol de Problemas.
+    """
+    pdf_output = io.BytesIO()
+    doc = SimpleDocTemplate(pdf_output, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+    styles = getSampleStyleSheet()
+    
+    # Custom Styles (Harmonious colors)
+    title_style = ParagraphStyle('PT_Title', parent=styles['Heading1'], textColor=colors.HexColor('#7C3AED'), alignment=1, spaceAfter=20)
+    h2_style = ParagraphStyle('PT_H2', parent=styles['Heading2'], textColor=colors.HexColor('#374151'), spaceBefore=15, spaceAfter=8)
+    problem_style = ParagraphStyle('PT_Problem', parent=styles['Heading2'], textColor=colors.white, alignment=1)
+    card_title_style = ParagraphStyle('PT_CardTitle', fontName='Helvetica-Bold', fontSize=10, textColor=colors.HexColor('#1F2937'), alignment=1)
+    body_style = ParagraphStyle('PT_Body', parent=styles['Normal'], fontSize=9, leading=12)
+    
+    elements = []
+    
+    # Title
+    elements.append(Paragraph("Reporte de Planificación: Árbol de Problemas", title_style))
+    elements.append(Spacer(1, 10))
+    
+    # 1. Central Problem (Highlight Card)
+    elements.append(Paragraph("PROBLEMA CENTRAL", ParagraphStyle('PT_Header_PC', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, textColor=colors.HexColor('#6B7280'), spaceAfter=5, alignment=1)))
+    
+    prob_p = Paragraph(f"<b>{problem_text}</b>", problem_style)
+    prob_table = Table([[prob_p]], colWidths=[500])
+    prob_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#7C3AED')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 15),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 15),
+        ('LEFTPADDING', (0, 0), (-1, -1), 20),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 20),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#6D28D9')),
+    ]))
+    elements.append(prob_table)
+    elements.append(Spacer(1, 20))
+    
+    # 2. Effects Section (Branches)
+    elements.append(Paragraph("EFECTOS (CONSECUENCIAS)", h2_style))
+    eff_elements = []
+    if not effects:
+        eff_elements.append([Paragraph("No se registraron efectos.", body_style)])
+    else:
+        for idx, eff in enumerate(effects):
+            eff_elements.append([Paragraph(f"<b>Efecto {idx+1}:</b> {eff}", body_style)])
+            
+    eff_table = Table(eff_elements, colWidths=[500])
+    eff_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#FDF2F8')), # Light pink/purple shade
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#F472B6')),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+    ]))
+    elements.append(eff_table)
+    elements.append(Spacer(1, 20))
+    
+    # 3. Causes Section (Roots)
+    elements.append(Paragraph("CAUSAS (ORÍGENES)", h2_style))
+    cause_elements = []
+    if not causes:
+        cause_elements.append([Paragraph("No se registraron causas.", body_style)])
+    else:
+        for idx, cause in enumerate(causes):
+            cause_elements.append([Paragraph(f"<b>Causa {idx+1}:</b> {cause}", body_style)])
+            
+    cause_table = Table(cause_elements, colWidths=[500])
+    cause_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F5F3FF')), # Light indigo/violet shade
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#A78BFA')),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('LEFTPADDING', (0, 0), (-1, -1), 12),
+    ]))
+    elements.append(cause_table)
+    elements.append(Spacer(1, 25))
+    
+    # 4. Quantitative Linked Data (If exists)
+    if linked_data:
+        elements.append(Paragraph("Sustentación Cuantitativa (Datos Vinculados)", h2_style))
+        elements.append(Paragraph("Las siguientes variables del dataset fueron vinculadas para justificar causas y efectos:", ParagraphStyle('LD_Desc', parent=styles['Normal'], fontSize=9, spaceAfter=10)))
+        
+        ld_header = [Paragraph("<b>Nodo / Tarjeta</b>", card_title_style), 
+                     Paragraph("<b>Variable Mapeada</b>", card_title_style), 
+                     Paragraph("<b>Métricas Descriptivas de los Datos</b>", card_title_style)]
+        ld_rows = [ld_header]
+        
+        for item in linked_data:
+            node_desc = Paragraph(f"<b>{item.get('node_type', '')}:</b> {item.get('node_text', '')}", body_style)
+            var_name = Paragraph(f"<code>{item.get('columna', '')}</code>", body_style)
+            
+            stats_str = ""
+            for sk, sv in item.get('stats', {}).items():
+                stats_str += f"<b>{sk}:</b> {sv}<br/>"
+            stats_p = Paragraph(stats_str if stats_str else "N/A", body_style)
+            
+            ld_rows.append([node_desc, var_name, stats_p])
+            
+        ld_table = Table(ld_rows, colWidths=[200, 110, 190])
+        ld_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#EDE9FE')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(ld_table)
+        
+    doc.build(elements)
+    pdf_output.seek(0)
+    return pdf_output
+
+
+def generate_bayesian_network_pdf(nodes, edges, cpts, evidence, inference_results):
+    """
+    Genera un reporte PDF con diseño premium para la Red Bayesiana.
+    """
+    pdf_output = io.BytesIO()
+    doc = SimpleDocTemplate(pdf_output, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+    styles = getSampleStyleSheet()
+    
+    title_style = ParagraphStyle('BN_Title', parent=styles['Heading1'], textColor=colors.HexColor('#0891B2'), alignment=1, spaceAfter=20)
+    h2_style = ParagraphStyle('BN_H2', parent=styles['Heading2'], textColor=colors.HexColor('#374151'), spaceBefore=15, spaceAfter=8)
+    body_style = ParagraphStyle('BN_Body', parent=styles['Normal'], fontSize=9, leading=12)
+    header_style = ParagraphStyle('BN_Header', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=10, textColor=colors.HexColor('#374151'), alignment=1)
+    cell_style = ParagraphStyle('BN_Cell', parent=styles['Normal'], fontSize=8, alignment=1)
+    
+    elements = []
+    
+    # Title
+    elements.append(Paragraph("Reporte de Análisis: Inferencia en Red Bayesiana", title_style))
+    elements.append(Spacer(1, 10))
+    
+    # 1. Network Structure
+    elements.append(Paragraph("1. Estructura de la Red Bayesiana", h2_style))
+    nodes_str = ", ".join(nodes.keys())
+    elements.append(Paragraph(f"<b>Variables (Nodos):</b> {nodes_str}", body_style))
+    
+    edges_str = " | ".join([f"{u} → {v}" for u, v in edges]) if edges else "Ninguna (Variables independientes)"
+    elements.append(Paragraph(f"<b>Dependencias (Relaciones):</b> {edges_str}", body_style))
+    elements.append(Spacer(1, 10))
+    
+    # 2. Evidence (Context)
+    elements.append(Paragraph("2. Evidencia (Condiciones Observadas)", h2_style))
+    if not evidence:
+        elements.append(Paragraph("<i>No se fijó ninguna evidencia. Se calculan probabilidades a priori.</i>", body_style))
+    else:
+        ev_elements = []
+        for var, val in evidence.items():
+            ev_elements.append([Paragraph(f"<b>Variable:</b> {var}", body_style), Paragraph(f"<b>Valor Observado:</b> {val}", body_style)])
+        ev_table = Table(ev_elements, colWidths=[250, 250])
+        ev_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#ECFDF5')), # Soft emerald
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#10B981')),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ]))
+        elements.append(ev_table)
+    elements.append(Spacer(1, 15))
+    
+    # 3. Inference Results (Core calculation)
+    elements.append(Paragraph("3. Resultados de Inferencia Exacta (Variable Elimination)", h2_style))
+    inf_rows = [[Paragraph("<b>Variable Consultada</b>", header_style), Paragraph("<b>Distribución de Probabilidad Posterior</b>", header_style)]]
+    
+    for var, dist in inference_results.items():
+        var_p = Paragraph(f"<b>{var}</b>", body_style)
+        
+        dist_str = ""
+        for state, prob in dist.items():
+            pct = float(prob) * 100
+            dist_str += f"• {state}: <b>{pct:.2f}%</b> (prob={prob})<br/>"
+        dist_p = Paragraph(dist_str, body_style)
+        
+        inf_rows.append([var_p, dist_p])
+        
+    inf_table = Table(inf_rows, colWidths=[200, 300])
+    inf_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#E0F2FE')), # Light cyan
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(inf_table)
+    elements.append(Spacer(1, 20))
+    
+    # 4. Tables CPT Summary
+    elements.append(Paragraph("4. Tablas de Probabilidad Condicional (CPT)", h2_style))
+    for var, cpt_info in cpts.items():
+        elements.append(Paragraph(f"<b>Tabla CPT de: {var}</b>", ParagraphStyle('BN_CptNode', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=9, textColor=colors.HexColor('#0891B2'), spaceBefore=8, spaceAfter=4)))
+        
+        cpt_vars = cpt_info['variables']
+        # Header for CPT
+        cpt_header = [Paragraph(v, header_style) for v in cpt_vars] + [Paragraph("P", header_style)]
+        cpt_rows = [cpt_header]
+        
+        for k, v in cpt_info['table'].items():
+            row_items = []
+            if isinstance(k, str):
+                cleaned = k.strip('()')
+                tup = tuple(x.strip().replace("'", "").replace('"', '') for x in cleaned.split(','))
+                if len(tup) == 1 and k.endswith(','):
+                    tup = (tup[0],)
+            else:
+                tup = k
+            for val in tup:
+                row_items.append(Paragraph(str(val), cell_style))
+            row_items.append(Paragraph(f"<b>{float(v):.4f}</b>", cell_style))
+            cpt_rows.append(row_items)
+            
+        col_width_factor = 500 / (len(cpt_vars) + 1)
+        cpt_table = Table(cpt_rows, colWidths=[col_width_factor]*(len(cpt_vars)+1))
+        cpt_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F8FAFC')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E2E8F0')),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(cpt_table)
+        elements.append(Spacer(1, 10))
+        
+    doc.build(elements)
+    pdf_output.seek(0)
+    return pdf_output
+
+
+def generate_markov_chains_pdf(states, transition_matrix, steps, projections, steady_state, simulated_path=None):
+    """
+    Genera un reporte PDF con diseño premium para Cadenas de Markov.
+    """
+    pdf_output = io.BytesIO()
+    doc = SimpleDocTemplate(pdf_output, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+    styles = getSampleStyleSheet()
+    
+    title_style = ParagraphStyle('MC_Title', parent=styles['Heading1'], textColor=colors.HexColor('#DB2777'), alignment=1, spaceAfter=20)
+    h2_style = ParagraphStyle('MC_H2', parent=styles['Heading2'], textColor=colors.HexColor('#374151'), spaceBefore=15, spaceAfter=8)
+    body_style = ParagraphStyle('MC_Body', parent=styles['Normal'], fontSize=9, leading=12)
+    header_style = ParagraphStyle('MC_Header', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=10, textColor=colors.HexColor('#374151'), alignment=1)
+    cell_style = ParagraphStyle('MC_Cell', parent=styles['Normal'], fontSize=8, alignment=1)
+    
+    elements = []
+    
+    # Title
+    elements.append(Paragraph("Reporte de Análisis: Cadenas de Markov", title_style))
+    elements.append(Spacer(1, 10))
+    
+    # 1. Transition Matrix
+    elements.append(Paragraph("1. Matriz de Transición de Estados", h2_style))
+    elements.append(Paragraph("Muestra las probabilidades de transición del estado origen (fila) al estado destino (columna):", body_style))
+    elements.append(Spacer(1, 5))
+    
+    # Render Matrix
+    mat_header = [Paragraph("<b>Origen \\ Destino</b>", header_style)] + [Paragraph(s, header_style) for s in states]
+    mat_rows = [mat_header]
+    for idx, row_probs in enumerate(transition_matrix):
+        row = [Paragraph(f"<b>{states[idx]}</b>", body_style)]
+        for p in row_probs:
+            row.append(Paragraph(f"{float(p):.4f}", cell_style))
+        mat_rows.append(row)
+        
+    col_width_factor = 500 / (len(states) + 1)
+    mat_table = Table(mat_rows, colWidths=[col_width_factor]*(len(states)+1))
+    mat_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FDF2F8')), # Soft pink
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#F472B6')),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BACKGROUND', (0, 1), (0, -1), colors.HexColor('#F8FAFC')),
+    ]))
+    elements.append(mat_table)
+    elements.append(Spacer(1, 15))
+    
+    # 2. Steady State (Equilibrium)
+    elements.append(Paragraph("2. Distribución de Estado Estacionario (Largo Plazo)", h2_style))
+    elements.append(Paragraph("Distribución de equilibrio probabilístico hacia donde converge el sistema a largo plazo (infinito número de pasos):", body_style))
+    elements.append(Spacer(1, 5))
+    
+    steady_rows = [[Paragraph("<b>Estado</b>", header_style), Paragraph("<b>Probabilidad Estacionaria Limítrofe</b>", header_style)]]
+    for idx, state in enumerate(states):
+        prob = steady_state[idx]
+        pct = float(prob) * 100
+        steady_rows.append([Paragraph(state, body_style), Paragraph(f"<b>{pct:.2f}%</b> (prob={prob:.4f})", body_style)])
+        
+    steady_table = Table(steady_rows, colWidths=[250, 250])
+    steady_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F3F4F6')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F9FAFB')]),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    elements.append(steady_table)
+    elements.append(Spacer(1, 15))
+    
+    # 3. Future Projections (Step by Step)
+    elements.append(Paragraph(f"3. Proyección Evolutiva (Hasta {steps} Pasos en el Futuro)", h2_style))
+    elements.append(Paragraph("Evolución temporal del vector de probabilidades para cada paso:", body_style))
+    elements.append(Spacer(1, 5))
+    
+    proj_header = [Paragraph("<b>Paso</b>", header_style)] + [Paragraph(s, header_style) for s in states]
+    proj_rows = [proj_header]
+    for step_num, dist in enumerate(projections):
+        row = [Paragraph(f"Paso {step_num}", body_style)]
+        for p in dist:
+            row.append(Paragraph(f"{float(p):.4f}", cell_style))
+        proj_rows.append(row)
+        
+    proj_table = Table(proj_rows, colWidths=[col_width_factor]*(len(states)+1))
+    proj_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#ECEFEE')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')]),
+    ]))
+    elements.append(proj_table)
+    elements.append(Spacer(1, 15))
+    
+    # 4. Random Walk Simulation (If exists)
+    if simulated_path:
+        elements.append(Paragraph("4. Simulación Monte Carlo de Recorrido Aleatorio (Random Walk)", h2_style))
+        elements.append(Paragraph(f"Secuencia simulada de estados visitados paso a paso (primeros 40 mostrados):", body_style))
+        
+        path_str = " → ".join(simulated_path[:40])
+        if len(simulated_path) > 40:
+            path_str += f" → ... (+{len(simulated_path) - 40} estados)"
+            
+        elements.append(Paragraph(f"<font color='#DB2777'><b>Camino:</b></font> {path_str}", ParagraphStyle('MC_Path', parent=styles['Normal'], fontSize=8.5, leading=11, spaceBefore=5)))
+        elements.append(Spacer(1, 10))
+        
+        # Calculate simulated frequencies
+        from collections import Counter
+        counts = Counter(simulated_path)
+        total = len(simulated_path)
+        
+        freq_rows = [[Paragraph("<b>Estado</b>", header_style), Paragraph("<b>Veces Visitado</b>", header_style), Paragraph("<b>Frecuencia Empírica</b>", header_style)]]
+        for s in states:
+            c = counts.get(s, 0)
+            pct = (c / total) * 100
+            freq_rows.append([Paragraph(s, body_style), Paragraph(str(c), body_style), Paragraph(f"<b>{pct:.2f}%</b>", body_style)])
+            
+        freq_table = Table(freq_rows, colWidths=[150, 150, 200])
+        freq_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#FDF2F8')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#F472B6')),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F9FAFB')]),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ]))
+        elements.append(freq_table)
+        
+    doc.build(elements)
+    pdf_output.seek(0)
+    return pdf_output
+

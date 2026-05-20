@@ -1,0 +1,1049 @@
+{% extends "base_analyzer.html" %}
+
+{% block title %}Cadenas de Markov - Analizador Estadístico{% endblock %}
+{% block page_title %}Modelado de Cadenas de Markov{% endblock %}
+{% block page_subtitle %}Analiza transiciones probabilísticas de estados y proyecta convergencias en el tiempo{% endblock %}
+
+{% block content %}
+<!-- Chart.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<div class="hidden">{% csrf_token %}</div>
+
+<!-- Error Alert -->
+<div id="errorAlert" class="hidden mb-6 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 text-red-700 dark:text-red-400 p-4 rounded-xl shadow-sm animate-fade-in-up" role="alert">
+    <p class="font-bold">Error en el proceso</p>
+    <p id="errorMessage" class="text-sm">Ha ocurrido un error al calcular los datos.</p>
+</div>
+
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-6 animate-fade-in-up">
+    <!-- Configuration Panel (Left side) -->
+    <div class="xl:col-span-1 space-y-6">
+        <!-- Selector de Origen de Datos (Tab) -->
+        <div class="glass p-6 rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50">
+            <h3 class="text-lg font-bold text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
+                <span class="w-2 h-6 bg-pink-500 rounded-full"></span>
+                Origen de los Datos
+            </h3>
+            
+            <div class="flex bg-slate-100 dark:bg-slate-800/80 p-1 rounded-xl mb-4">
+                <button id="tabManual" class="flex-1 py-2 px-3 rounded-lg text-xs font-semibold bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-white transition-all">
+                    Matriz Manual
+                </button>
+                <button id="tabFile" class="flex-1 py-2 px-3 rounded-lg text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-all">
+                    Estimar de Excel / Word
+                </button>
+            </div>
+
+            <!-- MODO MATRIZ MANUAL -->
+            <div id="modeManual" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Definir Estados</label>
+                    <div class="flex gap-2 mb-2">
+                        <input type="text" id="stateInput" placeholder="Ej. Soleado, Nublado" class="flex-1 bg-white/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-600 rounded-lg text-sm px-3 py-2 text-slate-800 dark:text-white focus:ring-pink-500 focus:border-pink-500">
+                        <button type="button" id="btnAddState" class="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-sm font-semibold transition shadow shadow-pink-500/20">Agregar</button>
+                    </div>
+                    <div id="statesTags" class="flex flex-wrap gap-1.5 p-2 bg-slate-50 dark:bg-slate-900/50 rounded-xl min-h-[50px] border border-slate-100 dark:border-slate-800">
+                        <!-- Tags will be dynamically generated -->
+                    </div>
+                </div>
+
+                <!-- Matrix and Initial Vectors Inputs (Will show when states >= 2) -->
+                <div id="matrixSection" class="hidden space-y-4">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Matriz de Transición (P)</label>
+                            <span id="matrixValidationMsg" class="text-[10px] font-bold text-amber-500"></span>
+                        </div>
+                        <div id="matrixGrid" class="overflow-x-auto p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 space-y-2">
+                            <!-- Matrix rows will generate here -->
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Vector Inicial (X0)</label>
+                        <div id="initialVectorGrid" class="flex gap-2 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 overflow-x-auto">
+                            <!-- Initial states inputs will generate here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODO SUBIDA DE ARCHIVOS -->
+            <div id="modeFile" class="hidden space-y-4">
+                <!-- Dropzone de Archivo -->
+                <div id="dropZone" class="border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-pink-500 dark:hover:border-pink-500 rounded-2xl p-6 text-center cursor-pointer transition-all duration-300 bg-white/30 dark:bg-slate-800/10 backdrop-blur-sm shadow-inner group">
+                    <input type="file" id="fileInput" accept=".xlsx,.xls,.docx,.doc,.txt" class="hidden">
+                    <div class="flex flex-col items-center">
+                        <div class="w-12 h-12 rounded-xl bg-pink-50 dark:bg-pink-900/20 text-pink-500 dark:text-pink-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                            </svg>
+                        </div>
+                        <p class="text-sm font-semibold text-slate-700 dark:text-slate-300">Selecciona o arrastra tu archivo</p>
+                        <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">Formatos permitidos: .xlsx, .xls, .docx, .doc, .txt</p>
+                    </div>
+                </div>
+
+                <!-- Display del archivo cargado -->
+                <div id="fileDisplay" class="hidden flex items-center justify-between p-3 bg-pink-50/50 dark:bg-pink-900/10 border border-pink-200/50 dark:border-pink-800/30 rounded-xl">
+                    <span id="fileName" class="text-xs font-semibold text-pink-700 dark:text-pink-400 truncate max-w-[180px]">archivo.xlsx</span>
+                    <button type="button" id="btnRemoveFile" class="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                    </button>
+                </div>
+
+                <!-- Selector de Columna (Muestra al subir archivo) -->
+                <div id="columnSelection" class="hidden space-y-2">
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Selecciona la Columna de Estados</label>
+                    <select id="colSelect" class="w-full form-select bg-white/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-600 focus:border-pink-500 focus:ring-pink-500 text-slate-700 dark:text-slate-300 rounded-lg text-sm px-3 py-2 transition-shadow">
+                        <!-- Options filled via JS -->
+                    </select>
+                    <p class="text-[10px] text-slate-400">El motor contará las transiciones sucesivas en esta secuencia temporal.</p>
+                    <!-- Banner informativo TXT -->
+                    <div id="txtInfoBanner" class="hidden p-3 bg-pink-500/10 border border-pink-500/30 rounded-xl text-[10px] text-pink-700 dark:text-pink-300 space-y-1">
+                        <p class="font-bold text-[11px]">📄 Modo Análisis de Texto</p>
+                        <p>El sistema extrajo métricas automáticas de tu .txt:</p>
+                        <ul class="list-disc list-inside space-y-0.5 mt-1">
+                            <li><b>Total_Palabras</b>: palabras por párrafo</li>
+                            <li><b>Total_Oraciones</b>: oraciones por párrafo</li>
+                            <li><b>Palabras_Únicas</b>: vocabulario único</li>
+                            <li><b>Densidad_Léxica</b>: riqueza léxica (0-1)</li>
+                            <li><b>Frec_*</b>: frecuencia de las 8 palabras clave</li>
+                        </ul>
+                        <p class="mt-1 text-slate-400">Selecciona la métrica que deseas usar como variable de estado.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parámetros Comunes -->
+            <div class="mt-6 pt-6 border-t border-slate-200/50 dark:border-slate-700/50 space-y-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">Pasos a Proyectar (N)</label>
+                    <input type="number" id="inputSteps" min="1" max="100" value="10" class="w-full bg-white/70 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-600 rounded-lg text-sm px-3 py-2 text-slate-800 dark:text-white focus:ring-pink-500 focus:border-pink-500">
+                </div>
+
+                <button type="button" id="btnCalculate" class="w-full py-3 bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 hover:from-pink-600 hover:via-rose-600 hover:to-purple-700 text-white rounded-xl font-bold shadow-lg shadow-pink-500/20 hover:shadow-pink-500/30 transition-all flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                    Calcular y Simular
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Panel (Right side, spans 2 cols) -->
+    <div class="xl:col-span-2 space-y-6">
+        <!-- Vista previa de datos Excel si existe -->
+        <div id="dataPreviewPanel" class="hidden glass p-6 rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50">
+            <h3 class="text-lg font-bold text-slate-800 dark:text-slate-200 mb-3 flex items-center gap-2">
+                <svg class="w-5 h-5 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                </svg>
+                Vista Previa del Dataset
+            </h3>
+            <div class="overflow-x-auto max-h-48 border border-slate-200 dark:border-slate-700 rounded-xl">
+                <table class="w-full text-xs text-left border-collapse text-slate-600 dark:text-slate-300">
+                    <thead class="sticky top-0 bg-slate-100 dark:bg-slate-800 font-bold uppercase tracking-wider text-[10px]">
+                        <tr id="previewHeaderRow"></tr>
+                    </thead>
+                    <tbody id="previewBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Dashboard de Resultados -->
+        <div id="resultsDashboard" class="hidden space-y-6">
+            <!-- Barra de Acciones Superior -->
+            <div class="flex justify-between items-center bg-white/40 dark:bg-slate-900/40 p-4 rounded-xl border border-white/60 dark:border-slate-800/60 backdrop-blur-sm shadow-sm">
+                <span class="text-sm font-semibold text-slate-700 dark:text-slate-300">Análisis calculado correctamente</span>
+                <button type="button" id="btnDownloadPdf" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white dark:bg-white dark:hover:bg-slate-100 dark:text-slate-900 rounded-lg text-xs font-bold transition flex items-center gap-2 shadow-md">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    Descargar Reporte PDF
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Tarjeta Matriz Calculada -->
+                <div class="glass p-6 rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50">
+                    <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Matriz de Transición Estimada/Validada</h4>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs text-center border-collapse">
+                            <thead>
+                                <tr id="resMatrixHeader" class="bg-pink-500/10 text-pink-700 dark:text-pink-400 font-bold uppercase tracking-wider"></tr>
+                            </thead>
+                            <tbody id="resMatrixBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tarjeta Estado Estacionario -->
+                <div class="glass p-6 rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50 space-y-4">
+                    <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Equilibrio a Largo Plazo (Estado Estacionario)</h4>
+                    <div id="resSteadyState" class="space-y-3">
+                        <!-- Steady states rendered here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gráfico de Convergencia -->
+            <div class="glass p-6 rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50">
+                <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-4">Línea de Tiempo de Convergencia de Probabilidades</h4>
+                <div class="h-[280px]">
+                    <canvas id="convergenceChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Simulador Monte Carlo (Random Walk) -->
+            <div class="glass p-6 rounded-2xl shadow-lg border border-slate-200/50 dark:border-slate-700/50 space-y-6">
+                <div class="flex justify-between items-center flex-wrap gap-2">
+                    <div>
+                        <h4 class="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Simulación Monte Carlo (Random Walk)</h4>
+                        <p class="text-xs text-slate-400">Observa un agente aleatorio atravesar la red según las probabilidades del sistema.</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" id="btnSimStep" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-white rounded-lg text-xs font-semibold transition">
+                            Paso a Paso
+                        </button>
+                        <button type="button" id="btnSimFast" class="px-3 py-1.5 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-xs font-semibold transition shadow shadow-pink-500/20">
+                            Simular 1000 iteraciones
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Canvas de Estados Conectados Animado -->
+                <div id="simulationCanvas" class="flex flex-wrap gap-6 justify-center items-center p-6 bg-slate-900/30 dark:bg-black/20 rounded-2xl border border-slate-200/20 min-h-[140px] relative overflow-hidden">
+                    <!-- Dynamic state bubble nodes will be added here -->
+                </div>
+
+                <!-- Frecuencias Empíricas de la simulación -->
+                <div class="border-t border-slate-200/50 dark:border-slate-700/50 pt-4">
+                    <h5 class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Estadísticas Empíricas de la Simulación</h5>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-xs text-left text-slate-600 dark:text-slate-300">
+                            <thead class="bg-slate-100/50 dark:bg-slate-800/30 font-bold uppercase tracking-wider">
+                                <tr>
+                                    <th class="py-2 px-4">Estado</th>
+                                    <th class="py-2 px-4 text-center">Veces Visitado</th>
+                                    <th class="py-2 px-4 text-center">Frecuencia Empírica</th>
+                                </tr>
+                            </thead>
+                            <tbody id="simFrequenciesBody" class="divide-y divide-slate-100 dark:divide-slate-800">
+                                <!-- Dynamic rows filled via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Tag element styling */
+    .state-tag {
+        display: inline-flex;
+        align-items: center;
+        background: rgba(219, 39, 119, 0.1);
+        border: 1px solid rgba(219, 39, 119, 0.2);
+        color: #db2777;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 9999px;
+        gap: 4px;
+        animation: scaleIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    .dark .state-tag {
+        background: rgba(219, 39, 119, 0.2);
+        color: #f472b6;
+    }
+    
+    @keyframes scaleIn {
+        from { transform: scale(0.7); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+    }
+    
+    .state-node-sim {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        font-weight: bold;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        text-align: center;
+        padding: 8px;
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // ── STATE VARIABLES ──
+    let states = ['A', 'B']; // Default states
+    let matrix = [[0.7, 0.3], [0.4, 0.6]];
+    let activeTab = 'manual'; // 'manual' or 'file'
+    let uploadedFile = null;
+    let availableColumns = [];
+    let convergenceChart = null;
+
+    // Simulation simulation walk state
+    let simStatesList = [];
+    let simActiveStateIndex = 0;
+    let simVisitsCount = {};
+    let simTotalSteps = 0;
+
+    // ── DOM ELEMENTS ──
+    const tabManual = document.getElementById('tabManual');
+    const tabFile = document.getElementById('tabFile');
+    const modeManual = document.getElementById('modeManual');
+    const modeFile = document.getElementById('modeFile');
+    
+    const stateInput = document.getElementById('stateInput');
+    const btnAddState = document.getElementById('btnAddState');
+    const statesTags = document.getElementById('statesTags');
+    const matrixSection = document.getElementById('matrixSection');
+    const matrixGrid = document.getElementById('matrixGrid');
+    const initialVectorGrid = document.getElementById('initialVectorGrid');
+    const matrixValidationMsg = document.getElementById('matrixValidationMsg');
+    
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileDisplay = document.getElementById('fileDisplay');
+    const fileName = document.getElementById('fileName');
+    const btnRemoveFile = document.getElementById('btnRemoveFile');
+    const columnSelection = document.getElementById('columnSelection');
+    const colSelect = document.getElementById('colSelect');
+    
+    const inputSteps = document.getElementById('inputSteps');
+    const btnCalculate = document.getElementById('btnCalculate');
+    const errorAlert = document.getElementById('errorAlert');
+    const errorMessage = document.getElementById('errorMessage');
+    
+    const dataPreviewPanel = document.getElementById('dataPreviewPanel');
+    const previewHeaderRow = document.getElementById('previewHeaderRow');
+    const previewBody = document.getElementById('previewBody');
+    
+    const resultsDashboard = document.getElementById('resultsDashboard');
+    const resMatrixHeader = document.getElementById('resMatrixHeader');
+    const resMatrixBody = document.getElementById('resMatrixBody');
+    const resSteadyState = document.getElementById('resSteadyState');
+    
+    const btnSimStep = document.getElementById('btnSimStep');
+    const btnSimFast = document.getElementById('btnSimFast');
+    const simulationCanvas = document.getElementById('simulationCanvas');
+    const simFrequenciesBody = document.getElementById('simFrequenciesBody');
+    
+    const btnDownloadPdf = document.getElementById('btnDownloadPdf');
+
+    function getCsrfToken() {
+        const input = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (input && input.value) return input.value;
+        const cookieMatch = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+        return cookieMatch ? decodeURIComponent(cookieMatch[2]) : null;
+    }
+
+    function requireCsrfToken() {
+        const token = getCsrfToken();
+        if (!token) {
+            showError('No se encontró el token CSRF. Recarga la página e intenta de nuevo.');
+        }
+        return token;
+    }
+
+    // ── TAB SWITCHER ──
+    tabManual.addEventListener('click', () => {
+        activeTab = 'manual';
+        tabManual.className = "flex-1 py-2 px-3 rounded-lg text-xs font-semibold bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-white transition-all";
+        tabFile.className = "flex-1 py-2 px-3 rounded-lg text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-all";
+        modeManual.classList.remove('hidden');
+        modeFile.classList.add('hidden');
+        dataPreviewPanel.classList.add('hidden');
+    });
+
+    tabFile.addEventListener('click', () => {
+        activeTab = 'file';
+        tabFile.className = "flex-1 py-2 px-3 rounded-lg text-xs font-semibold bg-white dark:bg-slate-700 shadow-sm text-slate-800 dark:text-white transition-all";
+        tabManual.className = "flex-1 py-2 px-3 rounded-lg text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-all";
+        modeFile.classList.remove('hidden');
+        modeManual.classList.add('hidden');
+        if (uploadedFile && availableColumns.length > 0) {
+            dataPreviewPanel.classList.remove('hidden');
+        }
+    });
+
+    // ── MANUAL MODE: STATES BUILDER ──
+    function renderStatesTags() {
+        statesTags.innerHTML = '';
+        states.forEach((state, idx) => {
+            const tag = document.createElement('span');
+            tag.className = 'state-tag';
+            tag.innerHTML = `${state} <button type="button" class="font-bold hover:text-red-600 transition ml-0.5">×</button>`;
+            
+            // Delete state tag handler
+            tag.querySelector('button').onclick = () => {
+                if (states.length <= 2) {
+                    showError("Se necesitan al menos 2 estados en el sistema.");
+                    return;
+                }
+                states.splice(idx, 1);
+                renderStatesTags();
+                renderMatrixInputs();
+            };
+            
+            statesTags.appendChild(tag);
+        });
+        
+        if (states.length >= 2) {
+            matrixSection.classList.remove('hidden');
+        } else {
+            matrixSection.classList.add('hidden');
+        }
+    }
+
+    btnAddState.onclick = () => {
+        const val = stateInput.value.trim();
+        if (val) {
+            if (states.includes(val)) {
+                showError("El estado ya existe.");
+                return;
+            }
+            states.push(val);
+            stateInput.value = '';
+            renderStatesTags();
+            renderMatrixInputs();
+        }
+    };
+
+    stateInput.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            btnAddState.click();
+        }
+    };
+
+    // ── MANUAL MATRIX INPUT GENERATION ──
+    function renderMatrixInputs() {
+        const n = states.length;
+        matrixGrid.innerHTML = '';
+        initialVectorGrid.innerHTML = '';
+        
+        // Col names header row inside matrix
+        const headerRow = document.createElement('div');
+        headerRow.className = 'flex gap-2 font-bold text-[10px] text-slate-400 uppercase tracking-widest';
+        const emptyCorner = document.createElement('div');
+        emptyCorner.className = 'w-16 flex-shrink-0';
+        headerRow.appendChild(emptyCorner);
+        
+        states.forEach(s => {
+            const hCell = document.createElement('div');
+            hCell.className = 'w-16 text-center truncate';
+            hCell.textContent = s;
+            headerRow.appendChild(hCell);
+        });
+        matrixGrid.appendChild(headerRow);
+
+        // Matrix inputs rows
+        for (let i = 0; i < n; i++) {
+            const row = document.createElement('div');
+            row.className = 'flex gap-2 items-center';
+            
+            // Row header label (Origin)
+            const rowLabel = document.createElement('span');
+            rowLabel.className = 'w-16 text-xs font-bold text-slate-500 truncate text-right pr-2';
+            rowLabel.textContent = states[i];
+            row.appendChild(rowLabel);
+            
+            for (let j = 0; j < n; j++) {
+                const cell = document.createElement('input');
+                cell.type = 'number';
+                cell.min = '0';
+                cell.max = '1';
+                cell.step = '0.01';
+                cell.className = 'mat-cell w-16 text-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs px-1 py-1 text-slate-800 dark:text-white rounded focus:ring-pink-500 focus:border-pink-500 font-mono';
+                cell.dataset.row = i;
+                cell.dataset.col = j;
+                
+                // Fallback default probabilities
+                if (i === j) {
+                    cell.value = (0.7).toFixed(2);
+                } else {
+                    cell.value = (0.3 / (n - 1)).toFixed(2);
+                }
+                
+                cell.addEventListener('input', validateMatrixRowsSum);
+                row.appendChild(cell);
+            }
+            
+            matrixGrid.appendChild(row);
+        }
+
+        // Vector initial inputs row
+        states.forEach((s, idx) => {
+            const vBlock = document.createElement('div');
+            vBlock.className = 'flex flex-col items-center flex-shrink-0';
+            const label = document.createElement('span');
+            label.className = 'text-[10px] font-bold text-slate-400 mb-1';
+            label.textContent = s;
+            
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.min = '0';
+            input.max = '1';
+            input.step = '0.01';
+            input.className = 'init-cell w-14 text-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs py-1 text-slate-800 dark:text-white rounded focus:ring-pink-500 font-mono';
+            input.dataset.idx = idx;
+            input.value = (1 / n).toFixed(2); // uniform initial prob
+            
+            vBlock.appendChild(label);
+            vBlock.appendChild(input);
+            initialVectorGrid.appendChild(vBlock);
+        });
+
+        validateMatrixRowsSum();
+    }
+
+    function validateMatrixRowsSum() {
+        const rows = matrixGrid.querySelectorAll('.flex.gap-2.items-center');
+        let allValid = true;
+        
+        matrixValidationMsg.innerHTML = '';
+        
+        for (let i = 0; i < states.length; i++) {
+            const cells = matrixGrid.querySelectorAll(`.mat-cell[data-row="${i}"]`);
+            let rowSum = 0;
+            cells.forEach(c => rowSum += parseFloat(c.value) || 0);
+            
+            // Allow precision margin of 1e-4
+            if (Math.abs(rowSum - 1.0) > 0.005) {
+                allValid = false;
+                cells.forEach(c => c.classList.add('border-amber-400', 'bg-amber-500/5'));
+            } else {
+                cells.forEach(c => c.classList.remove('border-amber-400', 'bg-amber-500/5'));
+            }
+        }
+        
+        if (!allValid) {
+            matrixValidationMsg.innerHTML = '⚠️ Cada fila de P debe sumar exactamente 1.00';
+        }
+        return allValid;
+    }
+
+    // Initialize Manual Matrix
+    renderStatesTags();
+    renderMatrixInputs();
+
+    // ── FILE MODE: FILE DRAG AND DROP ──
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.add('border-pink-500', 'bg-pink-500/10');
+        }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dropZone.classList.remove('border-pink-500', 'bg-pink-500/10');
+        }, false);
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length > 0) {
+            handleUploadedFile(files[0]);
+        }
+    }, false);
+
+    dropZone.onclick = () => fileInput.click();
+    fileInput.onchange = () => {
+        if (fileInput.files.length > 0) {
+            handleUploadedFile(fileInput.files[0]);
+        }
+    };
+
+    btnRemoveFile.onclick = (e) => {
+        e.stopPropagation();
+        fileInput.value = '';
+        uploadedFile = null;
+        fileDisplay.classList.add('hidden');
+        dropZone.classList.remove('hidden');
+        columnSelection.classList.add('hidden');
+        dataPreviewPanel.classList.add('hidden');
+        previewHeaderRow.innerHTML = '';
+        previewBody.innerHTML = '';
+        availableColumns = [];
+    };
+
+    async function handleUploadedFile(file) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (ext !== 'xlsx' && ext !== 'xls' && ext !== 'docx' && ext !== 'doc' && ext !== 'txt') {
+            showError("Formato de archivo no soportado. Se permiten: .xlsx, .xls, .docx, .doc, .txt");
+            return;
+        }
+
+        uploadedFile = file;
+        fileName.textContent = file.name;
+        dropZone.classList.add('hidden');
+        fileDisplay.classList.remove('hidden');
+        
+        // Fetch columns via peak columns endpoint
+        const formData = new FormData();
+        formData.append('files', file);
+        
+        const csrfToken = requireCsrfToken();
+        if (!csrfToken) return;
+        
+        try {
+            const resp = await fetch('/api/columns/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
+            });
+            
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data.sheets && data.sheets.length > 0) {
+                    const sheet = data.sheets[0];
+                    availableColumns = sheet.columns;
+                    
+                    // Populate select options
+                    colSelect.innerHTML = '';
+                    availableColumns.forEach(col => {
+                        const opt = document.createElement('option');
+                        opt.value = col;
+                        opt.textContent = col;
+                        colSelect.appendChild(opt);
+                    });
+                    
+                    columnSelection.classList.remove('hidden');
+                    
+                    // Mostrar banner si es TXT
+                    const txtBanner = document.getElementById('txtInfoBanner');
+                    if (txtBanner) {
+                        if (file.name.toLowerCase().endsWith('.txt')) {
+                            txtBanner.classList.remove('hidden');
+                        } else {
+                            txtBanner.classList.add('hidden');
+                        }
+                    }
+                    
+                    // Render preview in panel
+                    renderPreview(sheet);
+                    dataPreviewPanel.classList.remove('hidden');
+                }
+            } else {
+                const err = await resp.json();
+                showError(err.error || "No se pudo leer el archivo.");
+            }
+        } catch (e) {
+            showError("Error al procesar el archivo: " + e.message);
+        }
+    }
+
+    function renderPreview(sheet) {
+        previewHeaderRow.innerHTML = '';
+        previewBody.innerHTML = '';
+        
+        sheet.columns.forEach(col => {
+            const th = document.createElement('th');
+            th.className = 'px-4 py-2 border-b border-slate-200 dark:border-slate-700';
+            th.textContent = col;
+            previewHeaderRow.appendChild(th);
+        });
+        
+        sheet.preview.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-800/50';
+            sheet.columns.forEach(col => {
+                const td = document.createElement('td');
+                td.className = 'px-4 py-2 border-b border-slate-200/50 dark:border-slate-700/50 truncate max-w-[150px]';
+                td.textContent = row[col] !== null ? row[col] : '-';
+                tr.appendChild(td);
+            });
+            previewBody.appendChild(tr);
+        });
+    }
+
+    // ── CALCULATION SUBMISSION ──
+    btnCalculate.onclick = async () => {
+        hideError();
+        
+        const steps = parseInt(inputSteps.value) || 10;
+        const csrfToken = requireCsrfToken();
+        if (!csrfToken) return;
+        
+        if (activeTab === 'manual') {
+            if (!validateMatrixRowsSum()) {
+                showError("Corrige la matriz de transición. Todas las filas deben sumar 1.00");
+                return;
+            }
+            
+            // Read matrix
+            const n = states.length;
+            const matrixData = [];
+            for (let i = 0; i < n; i++) {
+                const row = [];
+                for (let j = 0; j < n; j++) {
+                    const cell = matrixGrid.querySelector(`.mat-cell[data-row="${i}"][data-col="${j}"]`);
+                    row.push(parseFloat(cell.value) || 0);
+                }
+                matrixData.push(row);
+            }
+            
+            // Read initial vector
+            const initialDist = [];
+            for (let i = 0; i < n; i++) {
+                const input = initialVectorGrid.querySelector(`.init-cell[data-idx="${i}"]`);
+                initialDist.push(parseFloat(input.value) || 0);
+            }
+            
+            // Normalize initial vector just in case
+            const initSum = initialDist.reduce((a, b) => a + b, 0);
+            if (initSum === 0) {
+                showError("El vector de estado inicial no puede contener solo ceros.");
+                return;
+            }
+            const normalizedInit = initialDist.map(v => v / initSum);
+
+            // API POST
+            btnCalculate.disabled = true;
+            btnCalculate.innerHTML = "Calculando...";
+            
+            try {
+                const resp = await fetch('/api/markov/calculate/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({
+                        states: states,
+                        matrix: matrixData,
+                        initial_dist: normalizedInit,
+                        steps: steps
+                    })
+                });
+                
+                if (resp.ok) {
+                    const resData = await resp.json();
+                    renderResultsDashboard(states, matrixData, resData, steps);
+                } else {
+                    const err = await resp.json();
+                    showError(err.error || "Ocurrió un error en el cálculo.");
+                }
+            } catch (e) {
+                showError("Error de conexión: " + e.message);
+            } finally {
+                btnCalculate.disabled = false;
+                btnCalculate.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Calcular y Simular`;
+            }
+        } else {
+            // MODO ARCHIVO EXCEL
+            if (!uploadedFile) {
+                showError("Sube un archivo de Excel para proceder.");
+                return;
+            }
+            const targetCol = colSelect.value;
+            
+            const formData = new FormData();
+            formData.append('file', uploadedFile);
+            formData.append('column', targetCol);
+            formData.append('steps', steps);
+            
+            btnCalculate.disabled = true;
+            btnCalculate.innerHTML = "Extrayendo y Calculando...";
+            
+            try {
+                const resp = await fetch('/api/markov/estimate/', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                    body: formData
+                });
+                
+                if (resp.ok) {
+                    const resData = await resp.json();
+                    // update local state
+                    states = resData.states;
+                    matrix = resData.matrix;
+                    renderResultsDashboard(states, matrix, resData, steps);
+                } else {
+                    const err = await resp.json();
+                    showError(err.error || "No se pudieron calcular las transiciones. Verifica que la columna contenga estados de texto.");
+                }
+            } catch (e) {
+                showError("Error de comunicación: " + e.message);
+            } finally {
+                btnCalculate.disabled = false;
+                btnCalculate.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Calcular y Simular`;
+            }
+        }
+    };
+
+    // ── RENDER RESULTS DASHBOARD ──
+    function renderResultsDashboard(activeStates, activeMatrix, data, steps) {
+        resultsDashboard.classList.remove('hidden');
+        window.scrollTo({
+            top: resultsDashboard.offsetTop - 80,
+            behavior: 'smooth'
+        });
+
+        // 1. Render Transition Matrix Table
+        resMatrixHeader.innerHTML = '<th class="py-2.5 px-4 font-bold text-center border-b border-pink-500/20">Origen \\ Destino</th>';
+        activeStates.forEach(s => {
+            const th = document.createElement('th');
+            th.className = 'py-2.5 px-4 font-bold text-center border-b border-pink-500/20';
+            th.textContent = s;
+            resMatrixHeader.appendChild(th);
+        });
+
+        resMatrixBody.innerHTML = '';
+        for (let i = 0; i < activeStates.length; i++) {
+            const tr = document.createElement('tr');
+            tr.className = i % 2 === 0 ? '' : 'bg-pink-500/5';
+            
+            const firstTd = document.createElement('td');
+            firstTd.className = 'py-2 px-4 font-bold text-slate-700 dark:text-slate-300 text-center border-b border-slate-100 dark:border-slate-800';
+            firstTd.textContent = activeStates[i];
+            tr.appendChild(firstTd);
+            
+            for (let j = 0; j < activeStates.length; j++) {
+                const td = document.createElement('td');
+                td.className = 'py-2 px-4 font-mono text-center border-b border-slate-100 dark:border-slate-800';
+                td.textContent = activeMatrix[i][j].toFixed(4);
+                tr.appendChild(td);
+            }
+            resMatrixBody.appendChild(tr);
+        }
+
+        // 2. Render Steady State
+        resSteadyState.innerHTML = '';
+        activeStates.forEach((s, idx) => {
+            const p = data.steady_state[idx];
+            const pct = (p * 100).toFixed(2);
+            
+            const block = document.createElement('div');
+            block.className = 'space-y-1';
+            block.innerHTML = `
+                <div class="flex justify-between text-xs font-semibold">
+                    <span class="text-slate-700 dark:text-slate-300">${s}</span>
+                    <span class="text-pink-600 dark:text-pink-400 font-bold">${pct}%</span>
+                </div>
+                <div class="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                    <div class="bg-gradient-to-r from-pink-500 to-purple-600 h-full rounded-full transition-all duration-1000" style="width: ${pct}%"></div>
+                </div>
+            `;
+            resSteadyState.appendChild(block);
+        });
+
+        // 3. Render Chart.js Convergence Line Chart
+        renderConvergenceChart(activeStates, data.projections);
+
+        // 4. Initialize Monte Carlo Simulation Panel
+        initMonteCarloPanel(activeStates, activeMatrix, data.simulated_path);
+    }
+
+    // ── CHART.JS CONVERGENCE CHART ──
+    function renderConvergenceChart(activeStates, projections) {
+        if (convergenceChart) convergenceChart.destroy();
+        
+        const labels = Array.from({ length: projections.length }, (_, i) => `Paso ${i}`);
+        
+        const datasets = activeStates.map((s, idx) => {
+            // Colors matching our dark palette
+            const colorPalette = [
+                '#EC4899', // pink-500
+                '#06B6D4', // cyan-500
+                '#F59E0B', // amber-500
+                '#8B5CF6', // violet-500
+                '#10B981', // emerald-500
+            ];
+            const color = colorPalette[idx % colorPalette.length];
+            
+            return {
+                label: s,
+                data: projections.map(p => p[idx]),
+                borderColor: color,
+                backgroundColor: color + '15',
+                tension: 0.3,
+                fill: false,
+                borderWidth: 2,
+                pointRadius: 3
+            };
+        });
+
+        const ctx = document.getElementById('convergenceChart').getContext('2d');
+        convergenceChart = new Chart(ctx, {
+            type: 'line',
+            data: { labels, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            color: document.documentElement.classList.contains('dark') ? '#94A3B8' : '#475569',
+                            font: { family: 'Inter', weight: 'bold' }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(148, 163, 184, 0.05)' },
+                        ticks: { color: '#94A3B8' }
+                    },
+                    y: {
+                        min: 0,
+                        max: 1,
+                        grid: { color: 'rgba(148, 163, 184, 0.05)' },
+                        ticks: { color: '#94A3B8' }
+                    }
+                }
+            }
+        });
+    }
+
+    // ── MONTE CARLO SIMULATOR ──
+    let simMatrix = [];
+    let simPath = [];
+    let simTimer = null;
+
+    function initMonteCarloPanel(activeStates, activeMatrix, path) {
+        simStatesList = activeStates;
+        simMatrix = activeMatrix;
+        simPath = path; // Loaded from API (Precomputed path of 200 nodes)
+        
+        // Reset local statistics
+        simVisitsCount = {};
+        simStatesList.forEach(s => simVisitsCount[s] = 0);
+        simActiveStateIndex = 0;
+        simTotalSteps = 0;
+
+        // Register initial state visit
+        const startState = simPath[0];
+        simVisitsCount[startState] = 1;
+        simTotalSteps = 1;
+
+        // Draw State bubbles on canvas
+        drawSimulationCanvas();
+        updateSimulationFrequencies();
+    }
+
+    function drawSimulationCanvas() {
+        simulationCanvas.innerHTML = '';
+        
+        simStatesList.forEach((state, idx) => {
+            const bubble = document.createElement('div');
+            bubble.id = `simNode-${state}`;
+            bubble.className = 'state-node-sim border';
+            
+            const activeColor = 'border-pink-500 bg-pink-500/20 text-pink-600 dark:text-pink-400 shadow-lg shadow-pink-500/10 scale-110';
+            const passiveColor = 'border-slate-200 dark:border-slate-800 bg-white/40 dark:bg-slate-900/40 text-slate-700 dark:text-slate-400';
+            
+            const isActive = simPath[simActiveStateIndex] === state;
+            bubble.className = `state-node-sim border ${isActive ? activeColor : passiveColor}`;
+            bubble.innerHTML = `
+                <span class="text-xs uppercase tracking-wide">Estado</span>
+                <span class="text-sm font-black">${state}</span>
+            `;
+            simulationCanvas.appendChild(bubble);
+        });
+    }
+
+    function updateSimulationFrequencies() {
+        simFrequenciesBody.innerHTML = '';
+        simStatesList.forEach(s => {
+            const visits = simVisitsCount[s];
+            const ratio = simTotalSteps > 0 ? (visits / simTotalSteps) : 0;
+            const pct = (ratio * 100).toFixed(2);
+            
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="py-2.5 px-4 font-bold text-slate-700 dark:text-slate-300">${s}</td>
+                <td class="py-2.5 px-4 text-center font-mono">${visits}</td>
+                <td class="py-2.5 px-4 text-center font-black text-pink-600 dark:text-pink-400 font-mono">${pct}%</td>
+            `;
+            simFrequenciesBody.appendChild(tr);
+        });
+    }
+
+    function makeSimulationStep() {
+        if (simActiveStateIndex >= simPath.length - 1) {
+            // Path loop over, generate next state empirically using the probabilities
+            const currState = simPath[simActiveStateIndex];
+            const currIdx = simStatesList.indexOf(currState);
+            const probs = simMatrix[currIdx];
+            
+            // Choose next randomly based on transition probabilities
+            let r = Math.random();
+            let sum = 0;
+            let nextIdx = 0;
+            for (let i = 0; i < probs.length; i++) {
+                sum += probs[i];
+                if (r <= sum) {
+                    nextIdx = i;
+                    break;
+                }
+            }
+            const nextState = simStatesList[nextIdx];
+            simPath.push(nextState);
+        }
+
+        simActiveStateIndex++;
+        const activeState = simPath[simActiveStateIndex];
+        
+        simVisitsCount[activeState]++;
+        simTotalSteps++;
+
+        // Update visuals with high responsiveness
+        drawSimulationCanvas();
+        updateSimulationFrequencies();
+    }
+
+    btnSimStep.onclick = () => {
+        makeSimulationStep();
+    };
+
+    btnSimFast.onclick = () => {
+        // Fast simulation iteration (runs 1000 calculations instantly)
+        btnSimFast.disabled = true;
+        btnSimFast.textContent = "Simulando...";
+        
+        setTimeout(() => {
+            for (let i = 0; i < 1000; i++) {
+                makeSimulationStep();
+            }
+            btnSimFast.disabled = false;
+            btnSimFast.textContent = "Simular 1000 iteraciones";
+        }, 100);
+    };
+
+    // ── PDF EXPORT TRIGGER ──
+    btnDownloadPdf.onclick = () => {
+        window.location.href = '/api/markov/pdf/';
+    };
+
+    // ── ERROR HELPER UTILITIES ──
+    function showError(msg) {
+        errorMessage.textContent = msg;
+        errorAlert.classList.remove('hidden');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function hideError() {
+        errorAlert.classList.add('hidden');
+    }
+});
+</script>
+{% endblock %}
